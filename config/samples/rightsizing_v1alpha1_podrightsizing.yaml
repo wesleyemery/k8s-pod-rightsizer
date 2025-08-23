@@ -4,6 +4,31 @@ metadata:
   labels:
     app.kubernetes.io/name: pod-rightsizer
     app.kubernetes.io/managed-by: kustomize
-  name: podrightsizing-sample
+  name: webapp-rightsizing
+  namespace: default
 spec:
-  # TODO(user): Add fields here
+  target:
+    namespace: default
+    labelSelector:
+      matchLabels:
+        app: webapp
+  analysisWindow: "7d"
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  dryRun: false
+  updatePolicy:
+    strategy: gradual
+    maxUnavailable: "25%"
+    minStabilityPeriod: "5m"
+  thresholds:
+    cpuUtilizationPercentile: 95
+    memoryUtilizationPercentile: 95
+    safetyMargin: 20
+    minChangeThreshold: 10
+    minCpu: 100m
+    minMemory: 128Mi
+    maxCpu: 4
+    maxMemory: 8Gi
+  metricsSource:
+    type: prometheus
+    prometheusConfig:
+      url: "http://prometheus:9090"

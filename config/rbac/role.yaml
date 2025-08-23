@@ -6,6 +6,52 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: manager-role
 rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - events
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - statefulsets
+  - daemonsets
+  - replicasets
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
+  - rightsizing.k8s-rightsizer.io
+  resources:
+  - podrightsizings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rightsizing.k8s-rightsizer.io
+  resources:
+  - podrightsizings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rightsizing.k8s-rightsizer.io
+  resources:
+  - podrightsizings/status
+  verbs:
+  - get
+  - patch
+  - update
