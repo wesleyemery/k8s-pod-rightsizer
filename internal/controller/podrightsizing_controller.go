@@ -1,9 +1,25 @@
-// internal/controller/podrightsizing_controller.go
+/*
+Copyright 2025.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package controller
 
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,61 +38,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	rightsizingv1alpha1 "github.com/your-username/k8s-pod-rightsizer/api/v1alpha1"
+	rightsizingv1alpha1 "github.com/wesleyemery/k8s-pod-rightsizer/api/v1alpha1"
+	"github.com/wesleyemery/k8s-pod-rightsizer/pkg/analyzer"
+	"github.com/wesleyemery/k8s-pod-rightsizer/pkg/metrics"
 )
 
 // PodRightSizingReconciler reconciles a PodRightSizing object
 type PodRightSizingReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
-	MetricsClient   MetricsClient
-	RecommendEngine RecommendationEngine
+	MetricsClient   *metrics.PrometheusClient
+	RecommendEngine *analyzer.RecommendationEngine
 }
 
-// MetricsClient interface for collecting pod metrics
-type MetricsClient interface {
-	GetPodMetrics(ctx context.Context, namespace, podName string, window time.Duration) (*PodMetrics, error)
-	GetWorkloadMetrics(ctx context.Context, namespace, workloadName, workloadType string, window time.Duration) (*WorkloadMetrics, error)
-}
-
-// RecommendationEngine interface for generating resource recommendations
-type RecommendationEngine interface {
-	GenerateRecommendations(ctx context.Context, metrics *WorkloadMetrics, thresholds rightsizingv1alpha1.ResourceThresholds) ([]rightsizingv1alpha1.PodRecommendation, error)
-}
-
-// PodMetrics represents resource usage metrics for a pod
-type PodMetrics struct {
-	PodName         string
-	Namespace       string
-	CPUUsageHistory []ResourceUsage
-	MemUsageHistory []ResourceUsage
-	StartTime       time.Time
-	EndTime         time.Time
-}
-
-// WorkloadMetrics represents aggregated metrics for a workload
-type WorkloadMetrics struct {
-	WorkloadName string
-	WorkloadType string
-	Namespace    string
-	Pods         []PodMetrics
-	StartTime    time.Time
-	EndTime      time.Time
-}
-
-// ResourceUsage represents resource usage at a point in time
-type ResourceUsage struct {
-	Timestamp time.Time
-	Value     float64
-	Unit      string
-}
-
-// +kubebuilder:rbac:groups=rightsizing.k8s-rightsizer.io,resources=podrightsizings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=rightsizing.k8s-rightsizer.io,resources=podrightsizings/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=rightsizing.k8s-rightsizer.io,resources=podrightsizings/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
-// +kubebuilder:rbac:groups="apps",resources=deployments;statefulsets;daemonsets,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups="",resources=events,verbs=create
+//+kubebuilder:rbac:groups=rightsizing.k8s-rightsizer.io,resources=podrightsizings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=rightsizing.k8s-rightsizer.io,resources=podrightsizings/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=rightsizing.k8s-rightsizer.io,resources=podrightsizings/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+//+kubebuilder:rbac:groups="apps",resources=deployments;statefulsets;daemonsets;replicasets,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups="",resources=events,verbs=create
 
 // Reconcile handles PodRightSizing custom resources
 func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -198,7 +178,12 @@ func (r *PodRightSizingReconciler) shouldRunAnalysis(prs *rightsizingv1alpha1.Po
 	interval := 24 * time.Hour
 	if prs.Spec.AnalysisWindow != "" {
 		if d, err := time.ParseDuration(prs.Spec.AnalysisWindow); err == nil {
-			interval = d
+			// For testing, run analysis every hour if window is less than 1 day
+			if d < 24*time.Hour {
+				interval = time.Hour
+			} else {
+				interval = d / 24 // Run daily for longer windows
+			}
 		}
 	}
 
@@ -207,9 +192,16 @@ func (r *PodRightSizingReconciler) shouldRunAnalysis(prs *rightsizingv1alpha1.Po
 
 // requeueAfter calculates when to requeue based on schedule
 func (r *PodRightSizingReconciler) requeueAfter(prs *rightsizingv1alpha1.PodRightSizing) ctrl.Result {
-	// Simple implementation - requeue every hour
-	// Production would parse the cron schedule properly
-	return ctrl.Result{RequeueAfter: time.Hour}
+	// Simple implementation - requeue every hour for testing, daily for production
+	interval := time.Hour
+	
+	if prs.Spec.AnalysisWindow != "" {
+		if d, err := time.ParseDuration(prs.Spec.AnalysisWindow); err == nil && d >= 24*time.Hour {
+			interval = 24 * time.Hour
+		}
+	}
+	
+	return ctrl.Result{RequeueAfter: interval}
 }
 
 // discoverTargetPods finds pods matching the target criteria
@@ -226,13 +218,39 @@ func (r *PodRightSizingReconciler) discoverTargetPods(ctx context.Context, prs *
 		}
 	}
 
-	// List pods in target namespace(s)
-	namespaces := []string{prs.Spec.Target.Namespace}
-	if prs.Spec.Target.Namespace == "" {
-		namespaces = []string{""} // All namespaces
+	// Determine target namespaces
+	var namespaces []string
+	
+	if prs.Spec.Target.NamespaceSelector != nil {
+		// Use namespace selector
+		namespaceSelector, err := metav1.LabelSelectorAsSelector(prs.Spec.Target.NamespaceSelector)
+		if err != nil {
+			return nil, fmt.Errorf("invalid namespace selector: %w", err)
+		}
+		
+		var namespaceList corev1.NamespaceList
+		if err := r.List(ctx, &namespaceList, client.MatchingLabelsSelector{Selector: namespaceSelector}); err != nil {
+			return nil, fmt.Errorf("failed to list namespaces: %w", err)
+		}
+		
+		for _, ns := range namespaceList.Items {
+			namespaces = append(namespaces, ns.Name)
+		}
+	} else if prs.Spec.Target.Namespace != "" {
+		// Use specific namespace
+		namespaces = []string{prs.Spec.Target.Namespace}
+	} else {
+		// Use all namespaces
+		namespaces = []string{""}
 	}
 
+	// List pods in target namespace(s)
 	for _, ns := range namespaces {
+		// Skip excluded namespaces
+		if r.isNamespaceExcluded(ns, prs.Spec.Target.ExcludeNamespaces) {
+			continue
+		}
+		
 		var podList corev1.PodList
 		listOpts := []client.ListOption{
 			client.MatchingLabelsSelector{Selector: selector},
@@ -256,6 +274,16 @@ func (r *PodRightSizingReconciler) discoverTargetPods(ctx context.Context, prs *
 	return pods, nil
 }
 
+// isNamespaceExcluded checks if a namespace should be excluded
+func (r *PodRightSizingReconciler) isNamespaceExcluded(namespace string, excludeList []string) bool {
+	for _, excludeNs := range excludeList {
+		if namespace == excludeNs {
+			return true
+		}
+	}
+	return false
+}
+
 // shouldIncludePod determines if a pod should be included for analysis
 func (r *PodRightSizingReconciler) shouldIncludePod(pod *corev1.Pod, prs *rightsizingv1alpha1.PodRightSizing) bool {
 	// Skip pods that are not running
@@ -263,11 +291,9 @@ func (r *PodRightSizingReconciler) shouldIncludePod(pod *corev1.Pod, prs *rights
 		return false
 	}
 
-	// Skip pods in excluded namespaces
-	for _, excludeNs := range prs.Spec.Target.ExcludeNamespaces {
-		if pod.Namespace == excludeNs {
-			return false
-		}
+	// Skip pods without owner references (standalone pods)
+	if len(pod.OwnerReferences) == 0 {
+		return false
 	}
 
 	// Check if pod belongs to supported workload types
@@ -285,6 +311,18 @@ func (r *PodRightSizingReconciler) shouldIncludePod(pod *corev1.Pod, prs *rights
 		}
 	}
 
+	// Skip if pod doesn't have resource requests/limits (nothing to optimize)
+	hasResources := false
+	for _, container := range pod.Spec.Containers {
+		if len(container.Resources.Requests) > 0 || len(container.Resources.Limits) > 0 {
+			hasResources = true
+			break
+		}
+	}
+	if !hasResources {
+		return false
+	}
+
 	return true
 }
 
@@ -300,6 +338,8 @@ func (r *PodRightSizingReconciler) getWorkloadType(pod *corev1.Pod) string {
 			return "DaemonSet"
 		case "Job":
 			return "Job"
+		case "CronJob":
+			return "CronJob"
 		}
 	}
 	return "Pod"
@@ -310,7 +350,7 @@ func (r *PodRightSizingReconciler) groupPodsByWorkload(pods []corev1.Pod) map[st
 	groups := make(map[string][]corev1.Pod)
 	
 	for _, pod := range pods {
-		workloadName := r.getWorkloadName(&pod)
+		workloadName := r.getWorkloadName(context.Background(), &pod)
 		workloadType := r.getWorkloadType(&pod)
 		key := fmt.Sprintf("%s/%s/%s", pod.Namespace, workloadType, workloadName)
 		groups[key] = append(groups[key], pod)
@@ -320,12 +360,12 @@ func (r *PodRightSizingReconciler) groupPodsByWorkload(pods []corev1.Pod) map[st
 }
 
 // getWorkloadName gets the name of the parent workload
-func (r *PodRightSizingReconciler) getWorkloadName(pod *corev1.Pod) string {
+func (r *PodRightSizingReconciler) getWorkloadName(ctx context.Context, pod *corev1.Pod) string {
 	for _, owner := range pod.OwnerReferences {
 		if owner.Kind == "ReplicaSet" {
 			// For Deployments, we need to get the Deployment name from ReplicaSet
 			var rs appsv1.ReplicaSet
-			if err := r.Get(context.Background(), types.NamespacedName{
+			if err := r.Get(ctx, types.NamespacedName{
 				Name:      owner.Name,
 				Namespace: pod.Namespace,
 			}, &rs); err == nil {
@@ -352,7 +392,7 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 	logger := log.FromContext(ctx)
 	
 	// Parse workload key
-	parts := splitWorkloadKey(workloadKey)
+	parts := r.splitWorkloadKey(workloadKey)
 	if len(parts) != 3 {
 		return nil, fmt.Errorf("invalid workload key: %s", workloadKey)
 	}
@@ -363,13 +403,20 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 	window, err := time.ParseDuration(prs.Spec.AnalysisWindow)
 	if err != nil {
 		window = 7 * 24 * time.Hour // Default to 7 days
+		logger.Info("Using default analysis window", "window", window)
 	}
 	
 	// Collect metrics for the workload
+	logger.Info("Collecting workload metrics", "workload", workloadKey, "window", window)
 	workloadMetrics, err := r.MetricsClient.GetWorkloadMetrics(ctx, namespace, workloadName, workloadType, window)
 	if err != nil {
 		logger.Error(err, "Failed to get workload metrics", "workload", workloadKey)
 		return nil, err
+	}
+	
+	if len(workloadMetrics.Pods) == 0 {
+		logger.Info("No metrics found for workload", "workload", workloadKey)
+		return nil, fmt.Errorf("no metrics found for workload %s", workloadKey)
 	}
 	
 	// Generate recommendations using the recommendation engine
@@ -379,8 +426,77 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 		return nil, err
 	}
 	
+	// Enhance recommendations with workload information
+	for i := range recommendations {
+		recommendations[i].PodReference.WorkloadType = workloadType
+		recommendations[i].PodReference.WorkloadName = workloadName
+		
+		// Get current resources for comparison
+		for _, pod := range pods {
+			if pod.Name == recommendations[i].PodReference.Name {
+				recommendations[i].CurrentResources = r.getCurrentResources(&pod)
+				break
+			}
+		}
+	}
+	
 	logger.Info("Generated recommendations", "workload", workloadKey, "count", len(recommendations))
 	return recommendations, nil
+}
+
+// getCurrentResources extracts current resource requirements from a pod
+func (r *PodRightSizingReconciler) getCurrentResources(pod *corev1.Pod) corev1.ResourceRequirements {
+	var totalRequests, totalLimits corev1.ResourceList
+	
+	totalRequests = make(corev1.ResourceList)
+	totalLimits = make(corev1.ResourceList)
+	
+	for _, container := range pod.Spec.Containers {
+		// Sum up CPU requests
+		if cpu, ok := container.Resources.Requests[corev1.ResourceCPU]; ok {
+			if existing, exists := totalRequests[corev1.ResourceCPU]; exists {
+				existing.Add(cpu)
+				totalRequests[corev1.ResourceCPU] = existing
+			} else {
+				totalRequests[corev1.ResourceCPU] = cpu
+			}
+		}
+		
+		// Sum up memory requests
+		if memory, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
+			if existing, exists := totalRequests[corev1.ResourceMemory]; exists {
+				existing.Add(memory)
+				totalRequests[corev1.ResourceMemory] = existing
+			} else {
+				totalRequests[corev1.ResourceMemory] = memory
+			}
+		}
+		
+		// Sum up CPU limits
+		if cpu, ok := container.Resources.Limits[corev1.ResourceCPU]; ok {
+			if existing, exists := totalLimits[corev1.ResourceCPU]; exists {
+				existing.Add(cpu)
+				totalLimits[corev1.ResourceCPU] = existing
+			} else {
+				totalLimits[corev1.ResourceCPU] = cpu
+			}
+		}
+		
+		// Sum up memory limits
+		if memory, ok := container.Resources.Limits[corev1.ResourceMemory]; ok {
+			if existing, exists := totalLimits[corev1.ResourceMemory]; exists {
+				existing.Add(memory)
+				totalLimits[corev1.ResourceMemory] = existing
+			} else {
+				totalLimits[corev1.ResourceMemory] = memory
+			}
+		}
+	}
+	
+	return corev1.ResourceRequirements{
+		Requests: totalRequests,
+		Limits:   totalLimits,
+	}
 }
 
 // applyRecommendations applies the generated recommendations
@@ -424,25 +540,189 @@ func (r *PodRightSizingReconciler) applyWorkloadRecommendations(
 	recommendations []rightsizingv1alpha1.PodRecommendation,
 ) (int, error) {
 	
-	// This is a simplified implementation
-	// Production implementation would handle different update strategies:
-	// - Immediate: Update all at once
-	// - Gradual: Update with rolling strategy
-	// - Manual: Just generate recommendations
+	logger := log.FromContext(ctx)
 	
 	if prs.Spec.UpdatePolicy.Strategy == rightsizingv1alpha1.UpdateStrategyManual {
+		logger.Info("Manual strategy - skipping actual updates", "workload", workloadKey)
 		return 0, nil // Don't apply, just generate recommendations
 	}
 	
-	// For now, implement a simple update strategy
-	// In production, you'd want to:
-	// 1. Get the parent workload (Deployment/StatefulSet)
-	// 2. Update the resource requests/limits in the workload spec
-	// 3. Handle rolling updates properly
-	// 4. Monitor the update progress
+	if len(recommendations) == 0 {
+		return 0, nil
+	}
 	
-	// TODO: Implement actual workload updates
-	return len(recommendations), nil
+	// Parse workload information
+	parts := r.splitWorkloadKey(workloadKey)
+	if len(parts) != 3 {
+		return 0, fmt.Errorf("invalid workload key: %s", workloadKey)
+	}
+	
+	namespace, workloadType, workloadName := parts[0], parts[1], parts[2]
+	
+	// Calculate average recommended resources across all pods in the workload
+	avgRecommendation := r.calculateAverageRecommendation(recommendations)
+	
+	// Apply based on workload type
+	switch workloadType {
+	case "Deployment":
+		return r.updateDeployment(ctx, namespace, workloadName, avgRecommendation)
+	case "StatefulSet":
+		return r.updateStatefulSet(ctx, namespace, workloadName, avgRecommendation)
+	case "DaemonSet":
+		return r.updateDaemonSet(ctx, namespace, workloadName, avgRecommendation)
+	default:
+		logger.Info("Workload type not supported for automatic updates", "type", workloadType)
+		return 0, nil
+	}
+}
+
+// calculateAverageRecommendation calculates average resource recommendations
+func (r *PodRightSizingReconciler) calculateAverageRecommendation(recommendations []rightsizingv1alpha1.PodRecommendation) corev1.ResourceRequirements {
+	if len(recommendations) == 0 {
+		return corev1.ResourceRequirements{}
+	}
+	
+	// For simplicity, use the first recommendation as the template
+	// In a more sophisticated implementation, you might average across all pods
+	return recommendations[0].RecommendedResources
+}
+
+// updateDeployment updates a Deployment with new resource recommendations
+func (r *PodRightSizingReconciler) updateDeployment(ctx context.Context, namespace, name string, resources corev1.ResourceRequirements) (int, error) {
+	logger := log.FromContext(ctx)
+	
+	var deployment appsv1.Deployment
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &deployment); err != nil {
+		return 0, fmt.Errorf("failed to get deployment %s/%s: %w", namespace, name, err)
+	}
+	
+	// Update container resources
+	updated := false
+	for i := range deployment.Spec.Template.Spec.Containers {
+		container := &deployment.Spec.Template.Spec.Containers[i]
+		if !r.resourcesEqual(container.Resources, resources) {
+			logger.Info("Updating container resources", 
+				"deployment", name, 
+				"container", container.Name,
+				"oldRequests", container.Resources.Requests,
+				"newRequests", resources.Requests,
+				"oldLimits", container.Resources.Limits,
+				"newLimits", resources.Limits)
+			
+			container.Resources = resources
+			updated = true
+		}
+	}
+	
+	if !updated {
+		logger.Info("No resource changes needed", "deployment", name)
+		return 0, nil
+	}
+	
+	// Update the deployment
+	if err := r.Update(ctx, &deployment); err != nil {
+		return 0, fmt.Errorf("failed to update deployment %s/%s: %w", namespace, name, err)
+	}
+	
+	logger.Info("Successfully updated deployment", "deployment", name)
+	return 1, nil
+}
+
+// updateStatefulSet updates a StatefulSet with new resource recommendations
+func (r *PodRightSizingReconciler) updateStatefulSet(ctx context.Context, namespace, name string, resources corev1.ResourceRequirements) (int, error) {
+	logger := log.FromContext(ctx)
+	
+	var statefulSet appsv1.StatefulSet
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &statefulSet); err != nil {
+		return 0, fmt.Errorf("failed to get statefulset %s/%s: %w", namespace, name, err)
+	}
+	
+	// Update container resources
+	updated := false
+	for i := range statefulSet.Spec.Template.Spec.Containers {
+		container := &statefulSet.Spec.Template.Spec.Containers[i]
+		if !r.resourcesEqual(container.Resources, resources) {
+			logger.Info("Updating container resources", 
+				"statefulset", name, 
+				"container", container.Name)
+			
+			container.Resources = resources
+			updated = true
+		}
+	}
+	
+	if !updated {
+		return 0, nil
+	}
+	
+	// Update the statefulset
+	if err := r.Update(ctx, &statefulSet); err != nil {
+		return 0, fmt.Errorf("failed to update statefulset %s/%s: %w", namespace, name, err)
+	}
+	
+	logger.Info("Successfully updated statefulset", "statefulset", name)
+	return 1, nil
+}
+
+// updateDaemonSet updates a DaemonSet with new resource recommendations
+func (r *PodRightSizingReconciler) updateDaemonSet(ctx context.Context, namespace, name string, resources corev1.ResourceRequirements) (int, error) {
+	logger := log.FromContext(ctx)
+	
+	var daemonSet appsv1.DaemonSet
+	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &daemonSet); err != nil {
+		return 0, fmt.Errorf("failed to get daemonset %s/%s: %w", namespace, name, err)
+	}
+	
+	// Update container resources
+	updated := false
+	for i := range daemonSet.Spec.Template.Spec.Containers {
+		container := &daemonSet.Spec.Template.Spec.Containers[i]
+		if !r.resourcesEqual(container.Resources, resources) {
+			logger.Info("Updating container resources", 
+				"daemonset", name, 
+				"container", container.Name)
+			
+			container.Resources = resources
+			updated = true
+		}
+	}
+	
+	if !updated {
+		return 0, nil
+	}
+	
+	// Update the daemonset
+	if err := r.Update(ctx, &daemonSet); err != nil {
+		return 0, fmt.Errorf("failed to update daemonset %s/%s: %w", namespace, name, err)
+	}
+	
+	logger.Info("Successfully updated daemonset", "daemonset", name)
+	return 1, nil
+}
+
+// resourcesEqual compares two ResourceRequirements for equality
+func (r *PodRightSizingReconciler) resourcesEqual(a, b corev1.ResourceRequirements) bool {
+	// Compare requests
+	if len(a.Requests) != len(b.Requests) {
+		return false
+	}
+	for resource, quantity := range a.Requests {
+		if bQuantity, exists := b.Requests[resource]; !exists || !quantity.Equal(bQuantity) {
+			return false
+		}
+	}
+	
+	// Compare limits
+	if len(a.Limits) != len(b.Limits) {
+		return false
+	}
+	for resource, quantity := range a.Limits {
+		if bQuantity, exists := b.Limits[resource]; !exists || !quantity.Equal(bQuantity) {
+			return false
+		}
+	}
+	
+	return true
 }
 
 // updatePhase updates the status phase of the PodRightSizing resource
@@ -457,6 +737,11 @@ func (r *PodRightSizingReconciler) updatePhase(
 	prs.Status.Message = message
 	
 	return r.Status().Update(ctx, prs)
+}
+
+// splitWorkloadKey splits a workload key into its components
+func (r *PodRightSizingReconciler) splitWorkloadKey(key string) []string {
+	return strings.SplitN(key, "/", 3)
 }
 
 // SetupWithManager sets up the controller with the Manager
@@ -474,7 +759,32 @@ func (r *PodRightSizingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					// Only trigger on resource changes
 					oldPod := e.ObjectOld.(*corev1.Pod)
 					newPod := e.ObjectNew.(*corev1.Pod)
-					return !resourcesEqual(oldPod.Spec.Containers, newPod.Spec.Containers)
+					return !r.containerResourcesEqual(oldPod.Spec.Containers, newPod.Spec.Containers)
+				},
+				CreateFunc: func(e predicate.CreateEvent) bool {
+					// Trigger on new pod creation
+					return true
+				},
+				DeleteFunc: func(e predicate.DeleteEvent) bool {
+					// Don't trigger on pod deletion
+					return false
+				},
+			},
+		).
+		Watches(
+			&source.Kind{Type: &appsv1.Deployment{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: handler.ToRequestsFunc(r.workloadToRightSizingRequests),
+			},
+			&predicate.Funcs{
+				UpdateFunc: func(e predicate.UpdateEvent) bool {
+					// Trigger on deployment spec changes
+					oldDep := e.ObjectOld.(*appsv1.Deployment)
+					newDep := e.ObjectNew.(*appsv1.Deployment)
+					return !r.containerResourcesEqual(
+						oldDep.Spec.Template.Spec.Containers,
+						newDep.Spec.Template.Spec.Containers,
+					)
 				},
 			},
 		).
@@ -482,6 +792,26 @@ func (r *PodRightSizingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			MaxConcurrentReconciles: 5,
 		}).
 		Complete(r)
+}
+
+// containerResourcesEqual compares container resources for equality
+func (r *PodRightSizingReconciler) containerResourcesEqual(oldContainers, newContainers []corev1.Container) bool {
+	if len(oldContainers) != len(newContainers) {
+		return false
+	}
+	
+	for i, oldContainer := range oldContainers {
+		if i >= len(newContainers) {
+			return false
+		}
+		newContainer := newContainers[i]
+		
+		if !r.resourcesEqual(oldContainer.Resources, newContainer.Resources) {
+			return false
+		}
+	}
+	
+	return true
 }
 
 // podToRightSizingRequests maps pod changes to PodRightSizing reconcile requests
@@ -509,34 +839,171 @@ func (r *PodRightSizingReconciler) podToRightSizingRequests(obj client.Object) [
 	return requests
 }
 
+// workloadToRightSizingRequests maps workload changes to PodRightSizing reconcile requests
+func (r *PodRightSizingReconciler) workloadToRightSizingRequests(obj client.Object) []reconcile.Request {
+	// Find all PodRightSizing resources that might target this workload
+	var rightSizingList rightsizingv1alpha1.PodRightSizingList
+	if err := r.List(context.Background(), &rightSizingList); err != nil {
+		return nil
+	}
+	
+	var requests []reconcile.Request
+	for _, prs := range rightSizingList.Items {
+		if r.workloadMatchesTarget(obj, &prs) {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      prs.Name,
+					Namespace: prs.Namespace,
+				},
+			})
+		}
+	}
+	
+	return requests
+}
+
 // podMatchesTarget checks if a pod matches the target criteria
 func (r *PodRightSizingReconciler) podMatchesTarget(pod *corev1.Pod, prs *rightsizingv1alpha1.PodRightSizing) bool {
-	// Simplified matching logic
-	// Production implementation would do full selector matching
+	// Check namespace
 	if prs.Spec.Target.Namespace != "" && pod.Namespace != prs.Spec.Target.Namespace {
 		return false
 	}
 	
+	// Check excluded namespaces
+	if r.isNamespaceExcluded(pod.Namespace, prs.Spec.Target.ExcludeNamespaces) {
+		return false
+	}
+	
+	// Check label selector
 	if prs.Spec.Target.LabelSelector != nil {
 		selector, err := metav1.LabelSelectorAsSelector(prs.Spec.Target.LabelSelector)
 		if err != nil {
 			return false
 		}
-		return selector.Matches(labels.Set(pod.Labels))
+		if !selector.Matches(labels.Set(pod.Labels)) {
+			return false
+		}
+	}
+	
+	// Check namespace selector
+	if prs.Spec.Target.NamespaceSelector != nil {
+		// Get the namespace object to check its labels
+		var namespace corev1.Namespace
+		if err := r.Get(context.Background(), types.NamespacedName{Name: pod.Namespace}, &namespace); err != nil {
+			return false
+		}
+		
+		selector, err := metav1.LabelSelectorAsSelector(prs.Spec.Target.NamespaceSelector)
+		if err != nil {
+			return false
+		}
+		if !selector.Matches(labels.Set(namespace.Labels)) {
+			return false
+		}
+	}
+	
+	// Check workload type
+	if len(prs.Spec.Target.IncludeWorkloadTypes) > 0 {
+		workloadType := r.getWorkloadType(pod)
+		found := false
+		for _, allowedType := range prs.Spec.Target.IncludeWorkloadTypes {
+			if workloadType == allowedType {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
 	}
 	
 	return true
 }
 
-// Helper functions
-func splitWorkloadKey(key string) []string {
-	// Split "namespace/workloadType/workloadName"
-	// This is a simplified implementation
-	return []string{"default", "Deployment", "example"} // TODO: implement proper parsing
+// workloadMatchesTarget checks if a workload matches the target criteria
+func (r *PodRightSizingReconciler) workloadMatchesTarget(obj client.Object, prs *rightsizingv1alpha1.PodRightSizing) bool {
+	// Check namespace
+	if prs.Spec.Target.Namespace != "" && obj.GetNamespace() != prs.Spec.Target.Namespace {
+		return false
+	}
+	
+	// Check excluded namespaces
+	if r.isNamespaceExcluded(obj.GetNamespace(), prs.Spec.Target.ExcludeNamespaces) {
+		return false
+	}
+	
+	// Check workload type
+	workloadType := r.getWorkloadTypeFromObject(obj)
+	if len(prs.Spec.Target.IncludeWorkloadTypes) > 0 {
+		found := false
+		for _, allowedType := range prs.Spec.Target.IncludeWorkloadTypes {
+			if workloadType == allowedType {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	
+	// Check label selector (against workload labels, not pod labels)
+	if prs.Spec.Target.LabelSelector != nil {
+		selector, err := metav1.LabelSelectorAsSelector(prs.Spec.Target.LabelSelector)
+		if err != nil {
+			return false
+		}
+		
+		// For workloads, we need to check if their pods would match
+		// This is a simplified check - in production you might want more sophisticated logic
+		var podLabels map[string]string
+		
+		switch workload := obj.(type) {
+		case *appsv1.Deployment:
+			podLabels = workload.Spec.Template.Labels
+		case *appsv1.StatefulSet:
+			podLabels = workload.Spec.Template.Labels
+		case *appsv1.DaemonSet:
+			podLabels = workload.Spec.Template.Labels
+		default:
+			// Fallback to workload labels
+			podLabels = obj.GetLabels()
+		}
+		
+		if !selector.Matches(labels.Set(podLabels)) {
+			return false
+		}
+	}
+	
+	// Check namespace selector
+	if prs.Spec.Target.NamespaceSelector != nil {
+		var namespace corev1.Namespace
+		if err := r.Get(context.Background(), types.NamespacedName{Name: obj.GetNamespace()}, &namespace); err != nil {
+			return false
+		}
+		
+		selector, err := metav1.LabelSelectorAsSelector(prs.Spec.Target.NamespaceSelector)
+		if err != nil {
+			return false
+		}
+		if !selector.Matches(labels.Set(namespace.Labels)) {
+			return false
+		}
+	}
+	
+	return true
 }
 
-func resourcesEqual(oldContainers, newContainers []corev1.Container) bool {
-	// Simplified comparison - compare resource requests/limits
-	// Production implementation would do deep comparison
-	return len(oldContainers) == len(newContainers)
+// getWorkloadTypeFromObject determines the workload type from a Kubernetes object
+func (r *PodRightSizingReconciler) getWorkloadTypeFromObject(obj client.Object) string {
+	switch obj.(type) {
+	case *appsv1.Deployment:
+		return "Deployment"
+	case *appsv1.StatefulSet:
+		return "StatefulSet"
+	case *appsv1.DaemonSet:
+		return "DaemonSet"
+	default:
+		return "Unknown"
+	}
 }

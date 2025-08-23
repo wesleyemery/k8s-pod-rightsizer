@@ -10,30 +10,29 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	rightsizingv1alpha1 "github.com/your-username/k8s-pod-rightsizer/api/v1alpha1"
-	"github.com/your-username/k8s-pod-rightsizer/pkg/metrics"
+	rightsizingv1alpha1 "github.com/wesleyemery/k8s-pod-rightsizer/api/v1alpha1"
+	"github.com/wesleyemery/k8s-pod-rightsizer/pkg/metrics"
 )
 
 // RecommendationEngine generates resource recommendations based on historical usage
 type RecommendationEngine struct {
 	// Configuration options
-	DefaultSafetyMargin       int     // Default safety margin percentage
-	DefaultConfidenceThreshold int    // Minimum confidence level
-	MinDataPoints            int     // Minimum data points required for recommendations
-	CPURequestMultiplier     float64 // Multiplier for CPU requests vs limits
-	MemoryRequestMultiplier  float64 // Multiplier for memory requests vs limits
+	DefaultSafetyMargin        int     // Default safety margin percentage
+	DefaultConfidenceThreshold int     // Minimum confidence level
+	MinDataPoints              int     // Minimum data points required for recommendations
+	CPURequestMultiplier       float64 // Multiplier for CPU requests vs limits
+	MemoryRequestMultiplier    float64 // Multiplier for memory requests vs limits
 }
 
 // NewRecommendationEngine creates a new recommendation engine with default settings
 func NewRecommendationEngine() *RecommendationEngine {
 	return &RecommendationEngine{
-		DefaultSafetyMargin:       20,  // 20% safety margin
-		DefaultConfidenceThreshold: 70, // 70% confidence threshold
-		MinDataPoints:            10,   // Minimum 10 data points
-		CPURequestMultiplier:     0.8,  // Requests = 80% of limits
-		MemoryRequestMultiplier:  0.9,  // Requests = 90% of limits
+		DefaultSafetyMargin:        20,  // 20% safety margin
+		DefaultConfidenceThreshold: 70,  // 70% confidence threshold
+		MinDataPoints:              10,  // Minimum 10 data points
+		CPURequestMultiplier:       0.8, // Requests = 80% of limits
+		MemoryRequestMultiplier:    0.9, // Requests = 90% of limits
 	}
 }
 
@@ -43,7 +42,7 @@ func (r *RecommendationEngine) GenerateRecommendations(
 	workloadMetrics *metrics.WorkloadMetrics,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) ([]rightsizingv1alpha1.PodRecommendation, error) {
-	
+
 	if len(workloadMetrics.Pods) == 0 {
 		return nil, fmt.Errorf("no pod metrics provided")
 	}
@@ -71,7 +70,7 @@ func (r *RecommendationEngine) generatePodRecommendation(
 	podMetrics metrics.PodMetrics,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) (*rightsizingv1alpha1.PodRecommendation, error) {
-	
+
 	// Analyze CPU usage
 	cpuRecommendation, cpuConfidence, err := r.analyzeCPUUsage(podMetrics.CPUUsageHistory, thresholds)
 	if err != nil {
@@ -101,7 +100,7 @@ func (r *RecommendationEngine) generatePodRecommendation(
 	// Set CPU recommendations
 	if cpuRecommendation.Limit != nil {
 		recommendedResources.Limits[corev1.ResourceCPU] = *cpuRecommendation.Limit
-		
+
 		// Calculate request as percentage of limit
 		limitValue := cpuRecommendation.Limit.AsApproximateFloat64()
 		requestValue := limitValue * r.CPURequestMultiplier
@@ -112,7 +111,7 @@ func (r *RecommendationEngine) generatePodRecommendation(
 	// Set Memory recommendations
 	if memoryRecommendation.Limit != nil {
 		recommendedResources.Limits[corev1.ResourceMemory] = *memoryRecommendation.Limit
-		
+
 		// Calculate request as percentage of limit
 		limitValue := memoryRecommendation.Limit.AsApproximateFloat64()
 		requestValue := limitValue * r.MemoryRequestMultiplier
@@ -128,9 +127,9 @@ func (r *RecommendationEngine) generatePodRecommendation(
 			// WorkloadType and WorkloadName would be filled by the controller
 		},
 		RecommendedResources: recommendedResources,
-		Confidence:          overallConfidence,
-		Reason:              r.buildReasonString(cpuRecommendation, memoryRecommendation, thresholds),
-		Applied:             false,
+		Confidence:           overallConfidence,
+		Reason:               r.buildReasonString(cpuRecommendation, memoryRecommendation, thresholds),
+		Applied:              false,
 	}
 
 	// Calculate potential savings
@@ -145,12 +144,12 @@ func (r *RecommendationEngine) generatePodRecommendation(
 
 // ResourceRecommendation represents a recommendation for a single resource type
 type ResourceRecommendation struct {
-	Request     *resource.Quantity
-	Limit       *resource.Quantity
-	Percentile  float64
-	Confidence  int
-	DataPoints  int
-	Reason      string
+	Request    *resource.Quantity
+	Limit      *resource.Quantity
+	Percentile float64
+	Confidence int
+	DataPoints int
+	Reason     string
 }
 
 // analyzeCPUUsage analyzes CPU usage history and generates recommendations
@@ -158,7 +157,7 @@ func (r *RecommendationEngine) analyzeCPUUsage(
 	cpuHistory []metrics.ResourceUsage,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) (*ResourceRecommendation, int, error) {
-	
+
 	if len(cpuHistory) < r.MinDataPoints {
 		return nil, 0, fmt.Errorf("insufficient CPU data points: %d < %d", len(cpuHistory), r.MinDataPoints)
 	}
@@ -184,7 +183,7 @@ func (r *RecommendationEngine) analyzeCPUUsage(
 	if thresholds.SafetyMargin > 0 {
 		safetyMargin = thresholds.SafetyMargin
 	}
-	
+
 	recommendedLimit := percentileValue * (1.0 + float64(safetyMargin)/100.0)
 
 	// Apply min/max constraints
@@ -224,7 +223,7 @@ func (r *RecommendationEngine) analyzeMemoryUsage(
 	memoryHistory []metrics.ResourceUsage,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) (*ResourceRecommendation, int, error) {
-	
+
 	if len(memoryHistory) < r.MinDataPoints {
 		return nil, 0, fmt.Errorf("insufficient memory data points: %d < %d", len(memoryHistory), r.MinDataPoints)
 	}
@@ -250,7 +249,7 @@ func (r *RecommendationEngine) analyzeMemoryUsage(
 	if thresholds.SafetyMargin > 0 {
 		safetyMargin = thresholds.SafetyMargin
 	}
-	
+
 	recommendedLimit := percentileValue * (1.0 + float64(safetyMargin)/100.0)
 
 	// Apply min/max constraints
@@ -331,7 +330,7 @@ func (r *RecommendationEngine) calculateConfidence(values []float64, percentileV
 	// Convert CV to confidence score
 	// Lower CV (more stable data) = higher confidence
 	// CV < 0.1 (very stable) = 95-100% confidence
-	// CV 0.1-0.3 (moderate) = 70-95% confidence  
+	// CV 0.1-0.3 (moderate) = 70-95% confidence
 	// CV 0.3-0.5 (variable) = 50-70% confidence
 	// CV > 0.5 (highly variable) = 30-50% confidence
 
@@ -429,18 +428,18 @@ func NewAdvancedAnalyzer() *AdvancedAnalyzer {
 func (a *AdvancedAnalyzer) AnalyzeWorkloadPatterns(
 	workloadMetrics *metrics.WorkloadMetrics,
 ) (*WorkloadAnalysis, error) {
-	
+
 	if len(workloadMetrics.Pods) == 0 {
 		return nil, fmt.Errorf("no pod metrics provided")
 	}
 
 	analysis := &WorkloadAnalysis{
-		WorkloadName:     workloadMetrics.WorkloadName,
-		WorkloadType:     workloadMetrics.WorkloadType,
-		Namespace:        workloadMetrics.Namespace,
-		AnalysisTime:     time.Now(),
-		TotalPods:        len(workloadMetrics.Pods),
-		AnalysisWindow:   workloadMetrics.EndTime.Sub(workloadMetrics.StartTime),
+		WorkloadName:   workloadMetrics.WorkloadName,
+		WorkloadType:   workloadMetrics.WorkloadType,
+		Namespace:      workloadMetrics.Namespace,
+		AnalysisTime:   time.Now(),
+		TotalPods:      len(workloadMetrics.Pods),
+		AnalysisWindow: workloadMetrics.EndTime.Sub(workloadMetrics.StartTime),
 	}
 
 	// Analyze CPU patterns
@@ -450,7 +449,7 @@ func (a *AdvancedAnalyzer) AnalyzeWorkloadPatterns(
 	}
 	analysis.CPUAnalysis = cpuAnalysis
 
-	// Analyze Memory patterns  
+	// Analyze Memory patterns
 	memAnalysis, err := a.analyzeMemoryPatterns(workloadMetrics.Pods)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze memory patterns: %w", err)
@@ -483,17 +482,17 @@ func (a *AdvancedAnalyzer) analyzeCPUPatterns(pods []metrics.PodMetrics) (*Resou
 		}
 
 		sort.Float64s(podValues)
-		
+
 		podAnalysis := PodResourceAnalysis{
-			PodName:         pod.PodName,
-			Min:             podValues[0],
-			Max:             podValues[len(podValues)-1],
-			Mean:            a.calculateMean(podValues),
-			P50:             a.calculatePercentile(podValues, 50),
-			P95:             a.calculatePercentile(podValues, 95),
-			P99:             a.calculatePercentile(podValues, 99),
-			StandardDev:     a.calculateStandardDeviation(podValues, a.calculateMean(podValues)),
-			DataPoints:      len(podValues),
+			PodName:     pod.PodName,
+			Min:         podValues[0],
+			Max:         podValues[len(podValues)-1],
+			Mean:        a.calculateMean(podValues),
+			P50:         a.calculatePercentile(podValues, 50),
+			P95:         a.calculatePercentile(podValues, 95),
+			P99:         a.calculatePercentile(podValues, 99),
+			StandardDev: a.calculateStandardDeviation(podValues, a.calculateMean(podValues)),
+			DataPoints:  len(podValues),
 		}
 
 		podAnalyses = append(podAnalyses, podAnalysis)
@@ -504,7 +503,7 @@ func (a *AdvancedAnalyzer) analyzeCPUPatterns(pods []metrics.PodMetrics) (*Resou
 	}
 
 	sort.Float64s(allValues)
-	
+
 	return &ResourceAnalysis{
 		ResourceType:    "CPU",
 		Unit:            "cores",
@@ -537,17 +536,17 @@ func (a *AdvancedAnalyzer) analyzeMemoryPatterns(pods []metrics.PodMetrics) (*Re
 		}
 
 		sort.Float64s(podValues)
-		
+
 		podAnalysis := PodResourceAnalysis{
-			PodName:         pod.PodName,
-			Min:             podValues[0],
-			Max:             podValues[len(podValues)-1],
-			Mean:            a.calculateMean(podValues),
-			P50:             a.calculatePercentile(podValues, 50),
-			P95:             a.calculatePercentile(podValues, 95),
-			P99:             a.calculatePercentile(podValues, 99),
-			StandardDev:     a.calculateStandardDeviation(podValues, a.calculateMean(podValues)),
-			DataPoints:      len(podValues),
+			PodName:     pod.PodName,
+			Min:         podValues[0],
+			Max:         podValues[len(podValues)-1],
+			Mean:        a.calculateMean(podValues),
+			P50:         a.calculatePercentile(podValues, 50),
+			P95:         a.calculatePercentile(podValues, 95),
+			P99:         a.calculatePercentile(podValues, 99),
+			StandardDev: a.calculateStandardDeviation(podValues, a.calculateMean(podValues)),
+			DataPoints:  len(podValues),
 		}
 
 		podAnalyses = append(podAnalyses, podAnalysis)
@@ -558,7 +557,7 @@ func (a *AdvancedAnalyzer) analyzeMemoryPatterns(pods []metrics.PodMetrics) (*Re
 	}
 
 	sort.Float64s(allValues)
-	
+
 	return &ResourceAnalysis{
 		ResourceType:    "Memory",
 		Unit:            "bytes",
@@ -580,7 +579,7 @@ func (a *AdvancedAnalyzer) detectUsagePatterns(pods []metrics.PodMetrics) []Usag
 
 	// Detect if there are clear daily/weekly patterns
 	// This is a simplified implementation - production would use more sophisticated time series analysis
-	
+
 	for _, pod := range pods {
 		// Analyze CPU patterns
 		if len(pod.CPUUsageHistory) > 24 { // Need at least 24 data points
@@ -612,7 +611,7 @@ func (a *AdvancedAnalyzer) analyzeTimeSeries(usage []metrics.ResourceUsage, reso
 
 	// Simple pattern detection - look for cyclical behavior
 	// In production, you'd use more sophisticated algorithms like FFT, autocorrelation, etc.
-	
+
 	values := make([]float64, len(usage))
 	for i, u := range usage {
 		values[i] = u.Value
@@ -623,7 +622,7 @@ func (a *AdvancedAnalyzer) analyzeTimeSeries(usage []metrics.ResourceUsage, reso
 
 	// Detect if usage varies significantly (indicating a pattern)
 	cv := stdDev / mean
-	
+
 	patternType := "steady"
 	if cv > 0.3 {
 		patternType = "variable"
@@ -647,11 +646,11 @@ func (a *AdvancedAnalyzer) analyzeTimeSeries(usage []metrics.ResourceUsage, reso
 	}
 
 	return &UsagePattern{
-		ResourceType:    resourceType,
-		PatternType:     patternType,
-		SpikePattern:    spikePattern,
-		Confidence:      a.calculateConfidence(values, mean),
-		Description:     fmt.Sprintf("%s usage shows %s pattern with %s spikes", resourceType, patternType, spikePattern),
+		ResourceType: resourceType,
+		PatternType:  patternType,
+		SpikePattern: spikePattern,
+		Confidence:   a.calculateConfidence(values, mean),
+		Description:  fmt.Sprintf("%s usage shows %s pattern with %s spikes", resourceType, patternType, spikePattern),
 	}
 }
 
@@ -676,7 +675,7 @@ func (a *AdvancedAnalyzer) generateWorkloadRecommendations(analysis *WorkloadAna
 		recommendations = append(recommendations, rec)
 	}
 
-	// Memory recommendations  
+	// Memory recommendations
 	if analysis.MemoryAnalysis != nil {
 		rec := WorkloadRecommendation{
 			Type: "Memory Optimization",
@@ -716,7 +715,7 @@ func (a *AdvancedAnalyzer) generateWorkloadRecommendations(analysis *WorkloadAna
 // calculateRecommendationPriority calculates priority based on resource analysis
 func (a *AdvancedAnalyzer) calculateRecommendationPriority(analysis *ResourceAnalysis) string {
 	cv := analysis.WorkloadStdDev / analysis.WorkloadMean
-	
+
 	if cv > 0.5 {
 		return "High" // High variability = high priority
 	} else if cv > 0.2 {
@@ -727,56 +726,56 @@ func (a *AdvancedAnalyzer) calculateRecommendationPriority(analysis *ResourceAna
 
 // Data structures for advanced analysis
 type WorkloadAnalysis struct {
-	WorkloadName     string
-	WorkloadType     string
-	Namespace        string
-	AnalysisTime     time.Time
-	AnalysisWindow   time.Duration
-	TotalPods        int
-	CPUAnalysis      *ResourceAnalysis
-	MemoryAnalysis   *ResourceAnalysis
-	UsagePatterns    []UsagePattern
-	Recommendations  []WorkloadRecommendation
+	WorkloadName    string
+	WorkloadType    string
+	Namespace       string
+	AnalysisTime    time.Time
+	AnalysisWindow  time.Duration
+	TotalPods       int
+	CPUAnalysis     *ResourceAnalysis
+	MemoryAnalysis  *ResourceAnalysis
+	UsagePatterns   []UsagePattern
+	Recommendations []WorkloadRecommendation
 }
 
 type ResourceAnalysis struct {
-	ResourceType     string
-	Unit             string
-	TotalDataPoints  int
-	WorkloadMin      float64
-	WorkloadMax      float64
-	WorkloadMean     float64
-	WorkloadP50      float64
-	WorkloadP95      float64
-	WorkloadP99      float64
-	WorkloadStdDev   float64
-	PodAnalyses      []PodResourceAnalysis
+	ResourceType    string
+	Unit            string
+	TotalDataPoints int
+	WorkloadMin     float64
+	WorkloadMax     float64
+	WorkloadMean    float64
+	WorkloadP50     float64
+	WorkloadP95     float64
+	WorkloadP99     float64
+	WorkloadStdDev  float64
+	PodAnalyses     []PodResourceAnalysis
 }
 
 type PodResourceAnalysis struct {
-	PodName      string
-	Min          float64
-	Max          float64
-	Mean         float64
-	P50          float64
-	P95          float64
-	P99          float64
-	StandardDev  float64
-	DataPoints   int
+	PodName     string
+	Min         float64
+	Max         float64
+	Mean        float64
+	P50         float64
+	P95         float64
+	P99         float64
+	StandardDev float64
+	DataPoints  int
 }
 
 type UsagePattern struct {
-	PodName         string
-	ResourceType    string
-	PatternType     string
-	SpikePattern    string
-	Confidence      int
-	Description     string
+	PodName      string
+	ResourceType string
+	PatternType  string
+	SpikePattern string
+	Confidence   int
+	Description  string
 }
 
 type WorkloadRecommendation struct {
-	Type         string
-	Description  string
-	Priority     string
-	Impact       string
+	Type        string
+	Description string
+	Priority    string
+	Impact      string
 }
