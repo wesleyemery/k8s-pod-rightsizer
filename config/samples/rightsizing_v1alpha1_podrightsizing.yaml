@@ -1,0 +1,9 @@
+apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
+kind: PodRightSizing
+metadata:
+  labels:
+    app.kubernetes.io/name: pod-rightsizer
+    app.kubernetes.io/managed-by: kustomize
+  name: podrightsizing-sample
+spec:
+  # TODO(user): Add fields here
