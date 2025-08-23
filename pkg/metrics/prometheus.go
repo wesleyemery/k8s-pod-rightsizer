@@ -249,7 +249,7 @@ func (m *MetricsServerClient) GetPodMetrics(ctx context.Context, namespace, podN
 		PodName:   podName,
 		Namespace: namespace,
 		CPUUsageHistory: []ResourceUsage{
-			{Timestamp: time.Now(), Value: 0.05, Unit: "cores"},  // 50m CPU
+			{Timestamp: time.Now(), Value: 0.05, Unit: "cores"}, // 50m CPU
 		},
 		MemUsageHistory: []ResourceUsage{
 			{Timestamp: time.Now(), Value: 67108864, Unit: "bytes"}, // 64Mi memory

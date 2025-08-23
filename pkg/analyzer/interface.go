@@ -3,7 +3,7 @@ package analyzer
 import (
 	"context"
 	"time"
-	
+
 	"github.com/wesleyemery/k8s-pod-rightsizer/pkg/metrics"
 )
 

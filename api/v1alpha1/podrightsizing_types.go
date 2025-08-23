@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -89,6 +90,7 @@ type UpdatePolicy struct {
 }
 
 // UpdateStrategy defines the strategy for applying updates
+// +kubebuilder:validation:Enum=immediate;gradual;manual
 type UpdateStrategy string
 
 const (
@@ -108,16 +110,16 @@ type ResourceThresholds struct {
 	MemoryUtilizationPercentile int `json:"memoryUtilizationPercentile,omitempty"`
 
 	// MinCPU defines minimum CPU request
-	MinCPU *corev1.Quantity `json:"minCpu,omitempty"`
+	MinCPU *resource.Quantity `json:"minCPU,omitempty"`
 
 	// MaxCPU defines maximum CPU request
-	MaxCPU *corev1.Quantity `json:"maxCpu,omitempty"`
+	MaxCPU *resource.Quantity `json:"maxCPU,omitempty"`
 
 	// MinMemory defines minimum memory request
-	MinMemory *corev1.Quantity `json:"minMemory,omitempty"`
+	MinMemory *resource.Quantity `json:"minMemory,omitempty"`
 
 	// MaxMemory defines maximum memory request
-	MaxMemory *corev1.Quantity `json:"maxMemory,omitempty"`
+	MaxMemory *resource.Quantity `json:"maxMemory,omitempty"`
 
 	// SafetyMargin defines safety margin percentage for recommendations
 	// +kubebuilder:default=20
@@ -139,10 +141,11 @@ type MetricsSourceSpec struct {
 }
 
 // MetricsSourceType defines the type of metrics source
+// +kubebuilder:validation:Enum=prometheus;metrics-server
 type MetricsSourceType string
 
 const (
-	MetricsSourcePrometheus   MetricsSourceType = "prometheus"
+	MetricsSourcePrometheus    MetricsSourceType = "prometheus"
 	MetricsSourceMetricsServer MetricsSourceType = "metrics-server"
 )
 
@@ -168,6 +171,7 @@ type AuthConfig struct {
 }
 
 // AuthType defines the authentication type
+// +kubebuilder:validation:Enum=none;basic;bearer
 type AuthType string
 
 const (
@@ -204,6 +208,7 @@ type PodRightSizingStatus struct {
 }
 
 // RightSizingPhase defines the phase of the right-sizing process
+// +kubebuilder:validation:Enum=Initializing;Analyzing;Recommending;Updating;Completed;Error
 type RightSizingPhase string
 
 const (
@@ -260,13 +265,13 @@ type PodReference struct {
 // ResourceSavings estimates potential savings from applying recommendations
 type ResourceSavings struct {
 	// CPUSavings estimates CPU savings (in cores)
-	CPUSavings *corev1.Quantity `json:"cpuSavings,omitempty"`
+	CPUSavings *resource.Quantity `json:"cpuSavings,omitempty"`
 
 	// MemorySavings estimates memory savings (in bytes)
-	MemorySavings *corev1.Quantity `json:"memorySavings,omitempty"`
+	MemorySavings *resource.Quantity `json:"memorySavings,omitempty"`
 
 	// CostSavings estimates cost savings (in USD per month)
-	CostSavings *float64 `json:"costSavings,omitempty"`
+	CostSavings string `json:"costSavings,omitempty"`
 }
 
 //+kubebuilder:object:root=true

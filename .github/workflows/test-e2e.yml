@@ -1,7 +1,6 @@
 name: E2E Tests
 
 on:
-  push:
   pull_request:
 
 jobs:
@@ -30,6 +29,10 @@ jobs:
         run: kind create cluster
 
       - name: Running Test e2e
+        env:
+          CERT_MANAGER_INSTALL_SKIP: "true"
         run: |
           go mod tidy
+          # Ensure tools directory exists and is clean
+          mkdir -p bin
           make test-e2e
