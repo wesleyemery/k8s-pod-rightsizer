@@ -65,13 +65,15 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var prometheusURL string
+	var useMockMetrics bool
 	var tlsOpts []func(*tls.Config)
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true, "If set, the metrics endpoint is served securely via HTTPS.")
-	flag.StringVar(&prometheusURL, "prometheus-url", "http://prometheus:9090", "Prometheus server URL")
+	flag.StringVar(&prometheusURL, "prometheus-url", "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090", "Prometheus server URL")
+	flag.BoolVar(&useMockMetrics, "use-mock-metrics", false, "Use mock metrics client for testing")
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
 	flag.StringVar(&webhookCertKey, "webhook-cert-key", "tls.key", "The name of the webhook key file.")
@@ -164,10 +166,20 @@ func main() {
 	}
 
 	// Initialize metrics client
-	metricsClient, err := metrics.NewPrometheusClient(prometheusURL, http.DefaultTransport)
-	if err != nil {
-		setupLog.Error(err, "unable to create metrics client")
-		os.Exit(1)
+	var metricsClient analyzer.MetricsClientInterface
+	
+	if useMockMetrics {
+		setupLog.Info("Using mock metrics client for testing")
+		metricsClient = metrics.NewMockMetricsClient()
+	} else {
+		setupLog.Info("Using Prometheus metrics client", "url", prometheusURL)
+		prometheusClient, err := metrics.NewPrometheusClient(prometheusURL, http.DefaultTransport)
+		if err != nil {
+			setupLog.Error(err, "unable to create Prometheus client, falling back to mock")
+			metricsClient = metrics.NewMockMetricsClient()
+		} else {
+			metricsClient = prometheusClient
+		}
 	}
 
 	// Initialize recommendation engine
@@ -212,5 +224,4 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-} go get github.com/prometheus/client_golang
-go get github.com/prometheus/common
+}

@@ -43,11 +43,12 @@ import (
 	"github.com/wesleyemery/k8s-pod-rightsizer/pkg/metrics"
 )
 
+
 // PodRightSizingReconciler reconciles a PodRightSizing object
 type PodRightSizingReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
-	MetricsClient   *metrics.PrometheusClient
+	MetricsClient   analyzer.MetricsClientInterface  // Use interface
 	RecommendEngine *analyzer.RecommendationEngine
 }
 
