@@ -89,7 +89,9 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	targetPods, err := r.discoverTargetPods(ctx, &podRightSizing)
 	if err != nil {
 		logger.Error(err, "Failed to discover target pods")
-		r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseError, fmt.Sprintf("Failed to discover pods: %v", err))
+		if updateErr := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseError, fmt.Sprintf("Failed to discover pods: %v", err)); updateErr != nil {
+			logger.Error(updateErr, "Failed to update phase to error")
+		}
 		return ctrl.Result{RequeueAfter: 5 * time.Minute}, err
 	}
 
