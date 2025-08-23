@@ -1,0 +1,609 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.2
+  name: podrightsizings.rightsizing.k8s-rightsizer.io
+spec:
+  group: rightsizing.k8s-rightsizer.io
+  names:
+    kind: PodRightSizing
+    listKind: PodRightSizingList
+    plural: podrightsizings
+    singular: podrightsizing
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.targetedPods
+      name: Targeted
+      type: integer
+    - jsonPath: .status.updatedPods
+      name: Updated
+      type: integer
+    - jsonPath: .status.lastAnalysisTime
+      name: Last Analysis
+      type: date
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: PodRightSizing is the Schema for the podrightsizings API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: PodRightSizingSpec defines the desired state of PodRightSizing
+            properties:
+              analysisWindow:
+                default: 7d
+                description: AnalysisWindow defines how far back to look for metrics
+                  (e.g., "7d", "30d")
+                type: string
+              dryRun:
+                default: false
+                description: DryRun when true, only generates recommendations without
+                  applying changes
+                type: boolean
+              metricsSource:
+                description: MetricsSource defines where to collect metrics from
+                properties:
+                  prometheusConfig:
+                    description: PrometheusConfig defines Prometheus-specific configuration
+                    properties:
+                      authConfig:
+                        description: AuthConfig defines authentication configuration
+                        properties:
+                          secretRef:
+                            description: SecretRef references a secret containing
+                              auth credentials
+                            properties:
+                              name:
+                                description: name is unique within a namespace to
+                                  reference a secret resource.
+                                type: string
+                              namespace:
+                                description: namespace defines the space within which
+                                  the secret name must be unique.
+                                type: string
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          type:
+                            description: 'Type defines the auth type: "basic", "bearer",
+                              "none"'
+                            enum:
+                            - none
+                            - basic
+                            - bearer
+                            type: string
+                        type: object
+                      insecureSkipTLSVerify:
+                        description: InsecureSkipTLSVerify skips TLS verification
+                        type: boolean
+                      url:
+                        description: URL is the Prometheus server URL
+                        type: string
+                    type: object
+                  type:
+                    default: prometheus
+                    description: 'Type defines the metrics source type: "prometheus",
+                      "metrics-server"'
+                    enum:
+                    - prometheus
+                    - metrics-server
+                    type: string
+                type: object
+              schedule:
+                default: 0 2 * * *
+                description: Schedule defines when to run analysis (cron format)
+                type: string
+              target:
+                description: Target defines which pods to analyze and optimize
+                properties:
+                  excludeNamespaces:
+                    description: ExcludeNamespaces lists namespaces to exclude
+                    items:
+                      type: string
+                    type: array
+                  includeWorkloadTypes:
+                    description: IncludeWorkloadTypes lists workload types to include
+                      (Deployment, StatefulSet, etc.)
+                    items:
+                      type: string
+                    type: array
+                  labelSelector:
+                    description: LabelSelector to filter pods
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: |-
+                            A label selector requirement is a selector that contains values, a key, and an operator that
+                            relates the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: |-
+                                operator represents a key's relationship to a set of values.
+                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: |-
+                                values is an array of string values. If the operator is In or NotIn,
+                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced during a strategic
+                                merge patch.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  namespace:
+                    description: Namespace to look for pods in. If empty, uses all
+                      namespaces
+                    type: string
+                  namespaceSelector:
+                    description: NamespaceSelector to select multiple namespaces
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: |-
+                            A label selector requirement is a selector that contains values, a key, and an operator that
+                            relates the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: |-
+                                operator represents a key's relationship to a set of values.
+                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: |-
+                                values is an array of string values. If the operator is In or NotIn,
+                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced during a strategic
+                                merge patch.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              thresholds:
+                description: Thresholds define the optimization parameters
+                properties:
+                  cpuUtilizationPercentile:
+                    default: 95
+                    description: CPUUtilizationPercentile defines target CPU utilization
+                      percentile (e.g., 95)
+                    type: integer
+                  maxCPU:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MaxCPU defines maximum CPU request
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  maxMemory:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MaxMemory defines maximum memory request
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  memoryUtilizationPercentile:
+                    default: 95
+                    description: MemoryUtilizationPercentile defines target memory
+                      utilization percentile
+                    type: integer
+                  minCPU:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MinCPU defines minimum CPU request
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  minChangeThreshold:
+                    default: 10
+                    description: MinChangeThreshold defines minimum change required
+                      to trigger update (percentage)
+                    type: integer
+                  minMemory:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MinMemory defines minimum memory request
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  safetyMargin:
+                    default: 20
+                    description: SafetyMargin defines safety margin percentage for
+                      recommendations
+                    type: integer
+                type: object
+              updatePolicy:
+                description: UpdatePolicy defines how updates should be applied
+                properties:
+                  backoffLimit:
+                    default: 3
+                    description: BackoffLimit defines max retries for failed updates
+                    format: int32
+                    type: integer
+                  maxSurge:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MaxSurge defines max pods that can be created above
+                      desired count
+                    x-kubernetes-int-or-string: true
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: MaxUnavailable defines max pods that can be unavailable
+                      during updates
+                    x-kubernetes-int-or-string: true
+                  minStabilityPeriod:
+                    default: 5m
+                    description: MinStabilityPeriod defines minimum time to wait between
+                      updates
+                    type: string
+                  strategy:
+                    default: gradual
+                    description: 'Strategy defines the update strategy: "immediate",
+                      "gradual", or "manual"'
+                    enum:
+                    - immediate
+                    - gradual
+                    - manual
+                    type: string
+                type: object
+            required:
+            - target
+            type: object
+          status:
+            description: PodRightSizingStatus defines the observed state of PodRightSizing
+            properties:
+              conditions:
+                description: Conditions contains the current service state
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              lastAnalysisTime:
+                description: LastAnalysisTime indicates when the last analysis was
+                  performed
+                format: date-time
+                type: string
+              lastUpdateTime:
+                description: LastUpdateTime indicates when resources were last updated
+                format: date-time
+                type: string
+              message:
+                description: Message provides a human-readable status message
+                type: string
+              phase:
+                description: Phase indicates the current phase of the right-sizing
+                  process
+                enum:
+                - Initializing
+                - Analyzing
+                - Recommending
+                - Updating
+                - Completed
+                - Error
+                type: string
+              recommendations:
+                description: Recommendations contains the current recommendations
+                items:
+                  description: PodRecommendation contains resource recommendations
+                    for a specific pod
+                  properties:
+                    applied:
+                      description: Applied indicates if this recommendation has been
+                        applied
+                      type: boolean
+                    appliedTime:
+                      description: AppliedTime indicates when this recommendation
+                        was applied
+                      format: date-time
+                      type: string
+                    confidence:
+                      description: Confidence indicates confidence level (0-100)
+                      type: integer
+                    currentResources:
+                      description: CurrentResources shows current resource requests/limits
+                      properties:
+                        claims:
+                          description: |-
+                            Claims lists the names of resources, defined in spec.resourceClaims,
+                            that are used by this container.
+
+                            This is an alpha field and requires enabling the
+                            DynamicResourceAllocation feature gate.
+
+                            This field is immutable. It can only be set for containers.
+                          items:
+                            description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                            properties:
+                              name:
+                                description: |-
+                                  Name must match the name of one entry in pod.spec.resourceClaims of
+                                  the Pod where this field is used. It makes that resource available
+                                  inside a container.
+                                type: string
+                              request:
+                                description: |-
+                                  Request is the name chosen for a request in the referenced claim.
+                                  If empty, everything from the claim is made available, otherwise
+                                  only the result of this request.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
+                        limits:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: |-
+                            Limits describes the maximum amount of compute resources allowed.
+                            More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                          type: object
+                        requests:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: |-
+                            Requests describes the minimum amount of compute resources required.
+                            If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                            otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                            More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                          type: object
+                      type: object
+                    podReference:
+                      description: PodReference identifies the target pod
+                      properties:
+                        name:
+                          description: Name is the pod name
+                          type: string
+                        namespace:
+                          description: Namespace is the pod namespace
+                          type: string
+                        workloadName:
+                          description: WorkloadName is the name of the parent workload
+                          type: string
+                        workloadType:
+                          description: WorkloadType is the type of workload (Deployment,
+                            StatefulSet, etc.)
+                          type: string
+                      required:
+                      - name
+                      - namespace
+                      type: object
+                    potentialSavings:
+                      description: PotentialSavings estimates cost/resource savings
+                      properties:
+                        costSavings:
+                          description: CostSavings estimates cost savings (in USD
+                            per month)
+                          type: string
+                        cpuSavings:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: CPUSavings estimates CPU savings (in cores)
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        memorySavings:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: MemorySavings estimates memory savings (in
+                            bytes)
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                      type: object
+                    reason:
+                      description: Reason explains why this recommendation was made
+                      type: string
+                    recommendedResources:
+                      description: RecommendedResources shows recommended resource
+                        requests/limits
+                      properties:
+                        claims:
+                          description: |-
+                            Claims lists the names of resources, defined in spec.resourceClaims,
+                            that are used by this container.
+
+                            This is an alpha field and requires enabling the
+                            DynamicResourceAllocation feature gate.
+
+                            This field is immutable. It can only be set for containers.
+                          items:
+                            description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                            properties:
+                              name:
+                                description: |-
+                                  Name must match the name of one entry in pod.spec.resourceClaims of
+                                  the Pod where this field is used. It makes that resource available
+                                  inside a container.
+                                type: string
+                              request:
+                                description: |-
+                                  Request is the name chosen for a request in the referenced claim.
+                                  If empty, everything from the claim is made available, otherwise
+                                  only the result of this request.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
+                          x-kubernetes-list-type: map
+                        limits:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: |-
+                            Limits describes the maximum amount of compute resources allowed.
+                            More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                          type: object
+                        requests:
+                          additionalProperties:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
+                          description: |-
+                            Requests describes the minimum amount of compute resources required.
+                            If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                            otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                            More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                          type: object
+                      type: object
+                  required:
+                  - currentResources
+                  - podReference
+                  - recommendedResources
+                  type: object
+                type: array
+              targetedPods:
+                description: TargetedPods indicates the number of pods being managed
+                format: int32
+                type: integer
+              updatedPods:
+                description: UpdatedPods indicates the number of pods that have been
+                  updated
+                format: int32
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

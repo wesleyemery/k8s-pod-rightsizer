@@ -18,9 +18,9 @@ type MockMetricsClient struct {
 // NewMockMetricsClient creates a mock metrics client for testing
 func NewMockMetricsClient() *MockMetricsClient {
 	return &MockMetricsClient{
-		BaseCPU:    0.05,  // 50m cores
+		BaseCPU:    0.05,     // 50m cores
 		BaseMemory: 67108864, // 64Mi bytes
-		Variance:   0.3,   // 30% variance
+		Variance:   0.3,      // 30% variance
 	}
 }
 
@@ -28,47 +28,47 @@ func NewMockMetricsClient() *MockMetricsClient {
 func (m *MockMetricsClient) GetPodMetrics(ctx context.Context, namespace, podName string, window time.Duration) (*PodMetrics, error) {
 	now := time.Now()
 	start := now.Add(-window)
-	
+
 	// Generate sample data points (one per 5 minutes)
 	interval := 5 * time.Minute
 	dataPoints := int(window / interval)
-	
+
 	if dataPoints == 0 {
 		dataPoints = 1
 	}
-	
+
 	var cpuHistory, memHistory []ResourceUsage
-	
+
 	for i := 0; i < dataPoints; i++ {
 		timestamp := start.Add(time.Duration(i) * interval)
-		
+
 		// Generate CPU usage with some variance
 		cpuVariance := (rand.Float64() - 0.5) * 2 * m.Variance
 		cpuValue := m.BaseCPU * (1 + cpuVariance)
 		if cpuValue < 0 {
 			cpuValue = 0.001
 		}
-		
+
 		// Generate memory usage with some variance
 		memVariance := (rand.Float64() - 0.5) * 2 * m.Variance
 		memValue := m.BaseMemory * (1 + memVariance)
 		if memValue < 0 {
 			memValue = 1024
 		}
-		
+
 		cpuHistory = append(cpuHistory, ResourceUsage{
 			Timestamp: timestamp,
 			Value:     cpuValue,
-			Unit:      "cores",background
+			Unit:      "cores",
 		})
-		
+
 		memHistory = append(memHistory, ResourceUsage{
 			Timestamp: timestamp,
 			Value:     memValue,
 			Unit:      "bytes",
 		})
 	}
-	
+
 	return &PodMetrics{
 		PodName:         podName,
 		Namespace:       namespace,
@@ -84,7 +84,7 @@ func (m *MockMetricsClient) GetWorkloadMetrics(ctx context.Context, namespace, w
 	// Simulate multiple pods in the workload
 	podCount := 3
 	var pods []PodMetrics
-	
+
 	for i := 0; i < podCount; i++ {
 		podName := fmt.Sprintf("%s-%s-%d", workloadName, generateRandomSuffix(), i)
 		podMetrics, err := m.GetPodMetrics(ctx, namespace, podName, window)
@@ -93,7 +93,7 @@ func (m *MockMetricsClient) GetWorkloadMetrics(ctx context.Context, namespace, w
 		}
 		pods = append(pods, *podMetrics)
 	}
-	
+
 	return &WorkloadMetrics{
 		WorkloadName: workloadName,
 		WorkloadType: workloadType,
