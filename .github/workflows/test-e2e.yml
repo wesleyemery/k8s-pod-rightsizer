@@ -32,4 +32,6 @@ jobs:
       - name: Running Test e2e
         run: |
           go mod tidy
+          # Ensure tools directory exists and is clean
+          mkdir -p bin
           make test-e2e
