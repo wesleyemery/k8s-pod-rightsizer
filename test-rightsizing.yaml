@@ -1,0 +1,26 @@
+apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
+kind: PodRightSizing
+metadata:
+  name: test-rightsizing
+  namespace: default
+spec:
+  target:
+    namespace: default
+    labelSelector:
+      matchLabels:
+        app: test-webapp
+  analysisWindow: "1h"  # Short for testing
+  dryRun: true  # Safe mode
+  schedule: "*/2 * * * *"  # Every 2 minutes for testing
+  thresholds:
+    cpuUtilizationPercentile: 90
+    memoryUtilizationPercentile: 90
+    safetyMargin: 25
+    minCpu: 50m
+    minMemory: 64Mi
+    maxCpu: 2
+    maxMemory: 2Gi
+  metricsSource:
+    type: prometheus
+    prometheusConfig:
+      url: "http://prometheus-server.monitoring.svc.cluster.local"

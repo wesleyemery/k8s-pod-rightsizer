@@ -110,16 +110,16 @@ type ResourceThresholds struct {
 	MemoryUtilizationPercentile int `json:"memoryUtilizationPercentile,omitempty"`
 
 	// MinCPU defines minimum CPU request
-	MinCPU *resource.Quantity `json:"minCPU,omitempty"`
+	MinCPU resource.Quantity `json:"minCpu,omitempty"`
 
 	// MaxCPU defines maximum CPU request
-	MaxCPU *resource.Quantity `json:"maxCPU,omitempty"`
+	MaxCPU resource.Quantity `json:"maxCpu,omitempty"`
 
 	// MinMemory defines minimum memory request
-	MinMemory *resource.Quantity `json:"minMemory,omitempty"`
+	MinMemory resource.Quantity `json:"minMemory,omitempty"`
 
 	// MaxMemory defines maximum memory request
-	MaxMemory *resource.Quantity `json:"maxMemory,omitempty"`
+	MaxMemory resource.Quantity `json:"maxMemory,omitempty"`
 
 	// SafetyMargin defines safety margin percentage for recommendations
 	// +kubebuilder:default=20

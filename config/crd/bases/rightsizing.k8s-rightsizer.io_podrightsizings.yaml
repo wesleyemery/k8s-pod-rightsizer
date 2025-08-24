@@ -236,7 +236,7 @@ spec:
                     description: CPUUtilizationPercentile defines target CPU utilization
                       percentile (e.g., 95)
                     type: integer
-                  maxCPU:
+                  maxCpu:
                     anyOf:
                     - type: integer
                     - type: string
@@ -255,18 +255,18 @@ spec:
                     description: MemoryUtilizationPercentile defines target memory
                       utilization percentile
                     type: integer
-                  minCPU:
+                  minChangeThreshold:
+                    default: 10
+                    description: MinChangeThreshold defines minimum change required
+                      to trigger update (percentage)
+                    type: integer
+                  minCpu:
                     anyOf:
                     - type: integer
                     - type: string
                     description: MinCPU defines minimum CPU request
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
-                  minChangeThreshold:
-                    default: 10
-                    description: MinChangeThreshold defines minimum change required
-                      to trigger update (percentage)
-                    type: integer
                   minMemory:
                     anyOf:
                     - type: integer

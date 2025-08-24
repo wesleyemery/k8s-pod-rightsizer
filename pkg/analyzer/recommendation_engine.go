@@ -187,14 +187,14 @@ func (r *RecommendationEngine) analyzeCPUUsage(
 	recommendedLimit := percentileValue * (1.0 + float64(safetyMargin)/100.0)
 
 	// Apply min/max constraints
-	if thresholds.MinCPU != nil {
+	if !thresholds.MinCPU.IsZero() {
 		minCPU := thresholds.MinCPU.AsApproximateFloat64()
 		if recommendedLimit < minCPU {
 			recommendedLimit = minCPU
 		}
 	}
 
-	if thresholds.MaxCPU != nil {
+	if !thresholds.MaxCPU.IsZero() {
 		maxCPU := thresholds.MaxCPU.AsApproximateFloat64()
 		if recommendedLimit > maxCPU {
 			recommendedLimit = maxCPU
@@ -253,14 +253,14 @@ func (r *RecommendationEngine) analyzeMemoryUsage(
 	recommendedLimit := percentileValue * (1.0 + float64(safetyMargin)/100.0)
 
 	// Apply min/max constraints
-	if thresholds.MinMemory != nil {
+	if !thresholds.MinMemory.IsZero() {
 		minMemory := thresholds.MinMemory.AsApproximateFloat64()
 		if recommendedLimit < minMemory {
 			recommendedLimit = minMemory
 		}
 	}
 
-	if thresholds.MaxMemory != nil {
+	if !thresholds.MaxMemory.IsZero() {
 		maxMemory := thresholds.MaxMemory.AsApproximateFloat64()
 		if recommendedLimit > maxMemory {
 			recommendedLimit = maxMemory
