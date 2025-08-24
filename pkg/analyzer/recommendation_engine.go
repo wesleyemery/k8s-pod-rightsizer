@@ -132,12 +132,15 @@ func (r *RecommendationEngine) generatePodRecommendation(
 		Applied:              false,
 	}
 
-	// Calculate potential savings
-	// This would require current resource settings to compare against
-	// For now, we'll set placeholder values
-	recommendation.PotentialSavings = rightsizingv1alpha1.ResourceSavings{
-		// TODO: Calculate actual savings based on current vs recommended
+	// Calculate potential savings (placeholder - actual current resources would come from controller)
+	placeholderCurrent := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    *resource.NewMilliQuantity(100, resource.DecimalSI), // 100m
+			corev1.ResourceMemory: *resource.NewQuantity(134217728, resource.BinarySI), // 128Mi
+		},
 	}
+	costCalculator := NewCostCalculator()
+	recommendation.PotentialSavings = costCalculator.CalculateSavings(placeholderCurrent, recommendedResources)
 
 	return recommendation, nil
 }
