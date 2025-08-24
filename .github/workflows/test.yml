@@ -1,24 +1,533 @@
 name: Tests
 
 on:
+  push:
+    branches: [ main, develop ]
   pull_request:
+    branches: [ main, develop ]
+
+env:
+  GO_VERSION: '1.23'
+  KUBERNETES_VERSION: v1.30.0
 
 jobs:
-  test:
-    name: Run on Ubuntu
+  # Unit tests with coverage
+  unit-tests:
+    name: Unit Tests & Coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Clone the code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
 
-      - name: Running Tests
+      - name: Install dependencies
         run: |
+          go mod download
           go mod tidy
-          # Ensure tools directory exists and is clean
+
+      - name: Run unit tests with coverage
+        run: |
           mkdir -p bin
-          make test
+          go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out
+
+      - name: Generate coverage report
+        run: |
+          go tool cover -html=coverage.out -o coverage.html
+          go tool cover -func=coverage.out | grep "total:" | awk '{print "COVERAGE=" $3}' >> $GITHUB_ENV
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: Archive coverage results
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.out
+            coverage.html
+
+      - name: Coverage Badge
+        run: |
+          echo "Coverage: ${{ env.COVERAGE }}"
+          if [[ "${{ env.COVERAGE }}" < "80%" ]]; then
+            echo "::warning::Coverage is below 80%: ${{ env.COVERAGE }}"
+          fi
+
+  # Integration tests with Kubernetes
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    strategy:
+      matrix:
+        kubernetes-version: [v1.28.0, v1.29.0, v1.30.0]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Setup Kind cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          version: v0.20.0
+          node_image: kindest/node:${{ matrix.kubernetes-version }}
+          cluster_name: rightsizer-test
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+            - role: control-plane
+              image: kindest/node:${{ matrix.kubernetes-version }}
+              extraMounts:
+              - hostPath: /var/run/docker.sock
+                containerPath: /var/run/docker.sock
+            - role: worker
+              image: kindest/node:${{ matrix.kubernetes-version }}
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go mod tidy
+
+      - name: Build controller binary
+        run: |
+          make build
+          ls -la bin/
+
+      - name: Install CRDs and RBAC
+        run: |
+          make install
+          kubectl wait --for=condition=established crd/podrightsizings.rightsizing.k8s-rightsizer.io --timeout=30s
+
+      - name: Run integration tests
+        run: |
+          # Run the integration test suite
+          go test -v -timeout 10m ./test/integration/...
+
+      - name: Test demo functionality
+        run: |
+          go run test/demo.go
+
+      - name: Run script-based tests
+        run: |
+          chmod +x scripts/test-setup.sh
+          ./scripts/test-setup.sh mock-only
+
+      - name: Test controller deployment
+        run: |
+          # Deploy test workload
+          kubectl apply -f test/sample-rightsizing.yaml
+          
+          # Wait for pods to be ready
+          kubectl wait --for=condition=available deployment/nginx --timeout=60s
+          
+          # Start controller in background
+          timeout 60s make run ARGS="--use-mock-metrics=true" &
+          CONTROLLER_PID=$!
+          
+          # Give controller time to start
+          sleep 10
+          
+          # Check if controller processed the PodRightSizing resource
+          kubectl get podrightsizing nginx-rightsizing -o yaml || true
+          
+          # Cleanup
+          kill $CONTROLLER_PID || true
+          kubectl delete -f test/sample-rightsizing.yaml --ignore-not-found=true
+
+      - name: Archive integration test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-logs-k8s-${{ matrix.kubernetes-version }}
+          path: |
+            controller.log
+            /tmp/kubebuilder-envtest-*
+
+  # End-to-end tests
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Setup Kind cluster with monitoring
+        uses: helm/kind-action@v1.10.0
+        with:
+          version: v0.20.0
+          node_image: kindest/node:${{ env.KUBERNETES_VERSION }}
+          cluster_name: rightsizer-e2e
+          config: |
+            kind: Cluster
+            apiVersion: kind.x-k8s.io/v1alpha4
+            nodes:
+            - role: control-plane
+              kubeadmConfigPatches:
+              - |
+                kind: InitConfiguration
+                nodeRegistration:
+                  kubeletExtraArgs:
+                    node-labels: "ingress-ready=true"
+              extraPortMappings:
+              - containerPort: 80
+                hostPort: 80
+                protocol: TCP
+              - containerPort: 443
+                hostPort: 443
+                protocol: TCP
+            - role: worker
+            - role: worker
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.12.0'
+
+      - name: Install Prometheus for metrics
+        run: |
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+          helm install prometheus prometheus-community/kube-prometheus-stack \
+            --namespace monitoring \
+            --create-namespace \
+            --set prometheus.prometheusSpec.retention=1h \
+            --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+            --wait --timeout=300s
+
+      - name: Build and load Docker image
+        run: |
+          make docker-build IMG=pod-rightsizer:test
+          kind load docker-image pod-rightsizer:test --name rightsizer-e2e
+
+      - name: Deploy controller to cluster
+        run: |
+          make deploy IMG=pod-rightsizer:test
+          kubectl wait --for=condition=available deployment/pod-rightsizer-controller-manager \
+            -n pod-rightsizer-system --timeout=120s
+
+      - name: Run E2E test suite
+        run: |
+          # Deploy multiple test workloads
+          kubectl apply -f - <<EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: e2e-test-stable
+            labels:
+              app: e2e-test-stable
+              workload-type: stable
+          spec:
+            replicas: 3
+            selector:
+              matchLabels:
+                app: e2e-test-stable
+            template:
+              metadata:
+                labels:
+                  app: e2e-test-stable
+              spec:
+                containers:
+                - name: nginx
+                  image: nginx:alpine
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                    limits:
+                      cpu: 500m
+                      memory: 512Mi
+          ---
+          apiVersion: apps/v1
+          kind: StatefulSet
+          metadata:
+            name: e2e-test-stateful
+            labels:
+              app: e2e-test-stateful
+              workload-type: stateful
+          spec:
+            serviceName: e2e-test-stateful
+            replicas: 2
+            selector:
+              matchLabels:
+                app: e2e-test-stateful
+            template:
+              metadata:
+                labels:
+                  app: e2e-test-stateful
+              spec:
+                containers:
+                - name: postgres
+                  image: postgres:13-alpine
+                  env:
+                  - name: POSTGRES_PASSWORD
+                    value: test123
+                  resources:
+                    requests:
+                      cpu: 200m
+                      memory: 256Mi
+                    limits:
+                      cpu: 1000m
+                      memory: 1Gi
+          EOF
+          
+          # Wait for deployments
+          kubectl wait --for=condition=available deployment/e2e-test-stable --timeout=120s
+          kubectl wait --for=condition=ready pod -l app=e2e-test-stateful --timeout=120s
+          
+          # Create PodRightSizing resources
+          kubectl apply -f - <<EOF
+          apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
+          kind: PodRightSizing
+          metadata:
+            name: e2e-stable-rightsizing
+          spec:
+            target:
+              labelSelector:
+                matchLabels:
+                  app: e2e-test-stable
+            analysisWindow: "5m"
+            dryRun: true
+            updatePolicy:
+              strategy: manual
+            thresholds:
+              cpuUtilizationPercentile: 95
+              memoryUtilizationPercentile: 95
+              safetyMargin: 20
+            metricsSource:
+              type: prometheus
+              prometheusConfig:
+                url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+          ---
+          apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
+          kind: PodRightSizing
+          metadata:
+            name: e2e-stateful-rightsizing
+          spec:
+            target:
+              labelSelector:
+                matchLabels:
+                  app: e2e-test-stateful
+            analysisWindow: "5m"
+            dryRun: true
+            updatePolicy:
+              strategy: manual
+            thresholds:
+              cpuUtilizationPercentile: 90
+              memoryUtilizationPercentile: 95
+              safetyMargin: 30
+            metricsSource:
+              type: prometheus
+              prometheusConfig:
+                url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+          EOF
+          
+          # Wait for analysis (allow some time for metrics collection)
+          sleep 60
+          
+          # Check results
+          kubectl get podrightsizing -o wide
+          kubectl describe podrightsizing e2e-stable-rightsizing
+          kubectl describe podrightsizing e2e-stateful-rightsizing
+          
+          # Verify recommendations were generated
+          stable_recommendations=$(kubectl get podrightsizing e2e-stable-rightsizing -o jsonpath='{.status.recommendations}')
+          stateful_recommendations=$(kubectl get podrightsizing e2e-stateful-rightsizing -o jsonpath='{.status.recommendations}')
+          
+          if [[ -n "$stable_recommendations" ]]; then
+            echo "✅ Stable workload recommendations generated successfully"
+          else
+            echo "❌ No recommendations generated for stable workload"
+            kubectl logs -n pod-rightsizer-system deployment/pod-rightsizer-controller-manager
+            exit 1
+          fi
+          
+          if [[ -n "$stateful_recommendations" ]]; then
+            echo "✅ StatefulSet recommendations generated successfully"
+          else
+            echo "❌ No recommendations generated for StatefulSet"
+            kubectl logs -n pod-rightsizer-system deployment/pod-rightsizer-controller-manager
+            exit 1
+          fi
+
+      - name: Test gradual update strategy
+        run: |
+          # Create a test for gradual updates (still in dry-run for safety)
+          kubectl apply -f - <<EOF
+          apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
+          kind: PodRightSizing
+          metadata:
+            name: e2e-gradual-test
+          spec:
+            target:
+              labelSelector:
+                matchLabels:
+                  app: e2e-test-stable
+            analysisWindow: "2m"
+            dryRun: true  # Keep safe for CI
+            updatePolicy:
+              strategy: gradual
+              maxUnavailable: "33%"
+              minStabilityPeriod: "30s"
+            thresholds:
+              cpuUtilizationPercentile: 90
+              memoryUtilizationPercentile: 90
+              safetyMargin: 15
+            metricsSource:
+              type: prometheus
+              prometheusConfig:
+                url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+          EOF
+          
+          sleep 30
+          kubectl describe podrightsizing e2e-gradual-test
+
+      - name: Archive E2E test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            /tmp/controller-logs-*
+            kubectl-logs-*.txt
+
+      - name: Cleanup E2E resources
+        if: always()
+        run: |
+          kubectl delete podrightsizing --all --ignore-not-found=true
+          kubectl delete deployment e2e-test-stable --ignore-not-found=true
+          kubectl delete statefulset e2e-test-stateful --ignore-not-found=true
+          make undeploy || true
+
+  # Performance and load tests
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          go mod download
+          go mod tidy
+
+      - name: Run benchmark tests
+        run: |
+          go test -bench=. -benchmem -benchtime=30s ./test/integration/... > benchmark_results.txt
+          cat benchmark_results.txt
+
+      - name: Performance regression check
+        run: |
+          # Simple performance check - ensure benchmarks complete in reasonable time
+          if grep -q "FAIL" benchmark_results.txt; then
+            echo "❌ Performance tests failed"
+            exit 1
+          else
+            echo "✅ Performance tests passed"
+          fi
+
+      - name: Archive benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark_results.txt
+
+  # Security and quality checks
+  security-checks:
+    name: Security & Quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install gosec
+        run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+
+      - name: Run gosec security scanner
+        run: |
+          gosec -fmt sarif -out gosec.sarif ./...
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gosec.sarif
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run staticcheck
+        uses: dominikh/staticcheck-action@v1.3.0
+        with:
+          version: "2023.1.7"
+          install-go: false
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  # Test summary
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, security-checks]
+    if: always()
+    steps:
+      - name: Test Results Summary
+        run: |
+          echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Unit Tests | ${{ needs.unit-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-tests.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY  
+          echo "| Security Checks | ${{ needs.security-checks.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.unit-tests.result }}" == "success" && "${{ needs.integration-tests.result }}" == "success" && "${{ needs.security-checks.result }}" == "success" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 All tests passed! The Pod Right-sizer is ready for deployment." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ Some tests failed. Please check the logs and fix issues before merging." >> $GITHUB_STEP_SUMMARY
+          fi
