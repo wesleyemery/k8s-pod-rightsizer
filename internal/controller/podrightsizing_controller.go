@@ -142,7 +142,9 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		updatedCount, err := r.applyRecommendations(ctx, &podRightSizing, allRecommendations)
 		if err != nil {
 			logger.Error(err, "Failed to apply some recommendations")
-			r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseError, fmt.Sprintf("Failed to apply recommendations: %v", err))
+			if updateErr := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseError, fmt.Sprintf("Failed to apply recommendations: %v", err)); updateErr != nil {
+				logger.Error(updateErr, "Failed to update phase to error")
+			}
 			return ctrl.Result{RequeueAfter: 5 * time.Minute}, err
 		}
 
@@ -321,11 +323,8 @@ func (r *PodRightSizingReconciler) shouldIncludePod(pod *corev1.Pod, prs *rights
 			break
 		}
 	}
-	if !hasResources {
-		return false
-	}
 
-	return true
+	return hasResources
 }
 
 // getWorkloadType determines the workload type of a pod
@@ -377,8 +376,10 @@ func (r *PodRightSizingReconciler) getWorkloadName(ctx context.Context, pod *cor
 					}
 				}
 			}
+		} else {
+			// For other workload types, return the owner name directly
+			return owner.Name
 		}
-		return owner.Name
 	}
 	return pod.Name
 }

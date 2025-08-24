@@ -400,7 +400,7 @@ func (r *RecommendationEngine) buildReasonString(
 		safetyMargin = thresholds.SafetyMargin
 	}
 
-	reasonStr := fmt.Sprintf("Recommendations based on historical usage analysis. ")
+	reasonStr := "Recommendations based on historical usage analysis. "
 	if len(reasons) > 0 {
 		reasonStr += fmt.Sprintf("%s. ", reasons[0])
 		if len(reasons) > 1 {
@@ -465,18 +465,23 @@ func (a *AdvancedAnalyzer) AnalyzeWorkloadPatterns(
 	return analysis, nil
 }
 
-// analyzeCPUPatterns analyzes CPU usage patterns across all pods
-func (a *AdvancedAnalyzer) analyzeCPUPatterns(pods []metrics.PodMetrics) (*ResourceAnalysis, error) {
+// analyzeResourcePatterns is a generic function to analyze resource patterns (CPU or Memory)
+func (a *AdvancedAnalyzer) analyzeResourcePatterns(
+	pods []metrics.PodMetrics,
+	resourceType, unit string,
+	getUsageHistory func(metrics.PodMetrics) []metrics.ResourceUsage,
+) (*ResourceAnalysis, error) {
 	var allValues []float64
-	var podAnalyses []PodResourceAnalysis
+	podAnalyses := make([]PodResourceAnalysis, 0, len(pods))
 
 	for _, pod := range pods {
-		if len(pod.CPUUsageHistory) == 0 {
+		usageHistory := getUsageHistory(pod)
+		if len(usageHistory) == 0 {
 			continue
 		}
 
-		podValues := make([]float64, len(pod.CPUUsageHistory))
-		for i, usage := range pod.CPUUsageHistory {
+		podValues := make([]float64, len(usageHistory))
+		for i, usage := range usageHistory {
 			podValues[i] = usage.Value
 			allValues = append(allValues, usage.Value)
 		}
@@ -499,14 +504,14 @@ func (a *AdvancedAnalyzer) analyzeCPUPatterns(pods []metrics.PodMetrics) (*Resou
 	}
 
 	if len(allValues) == 0 {
-		return nil, fmt.Errorf("no CPU data available")
+		return nil, fmt.Errorf("no %s data available", resourceType)
 	}
 
 	sort.Float64s(allValues)
 
 	return &ResourceAnalysis{
-		ResourceType:    "CPU",
-		Unit:            "cores",
+		ResourceType:    resourceType,
+		Unit:            unit,
 		TotalDataPoints: len(allValues),
 		WorkloadMin:     allValues[0],
 		WorkloadMax:     allValues[len(allValues)-1],
@@ -519,58 +524,18 @@ func (a *AdvancedAnalyzer) analyzeCPUPatterns(pods []metrics.PodMetrics) (*Resou
 	}, nil
 }
 
+// analyzeCPUPatterns analyzes CPU usage patterns across all pods
+func (a *AdvancedAnalyzer) analyzeCPUPatterns(pods []metrics.PodMetrics) (*ResourceAnalysis, error) {
+	return a.analyzeResourcePatterns(pods, "CPU", "cores", func(pod metrics.PodMetrics) []metrics.ResourceUsage {
+		return pod.CPUUsageHistory
+	})
+}
+
 // analyzeMemoryPatterns analyzes memory usage patterns across all pods
 func (a *AdvancedAnalyzer) analyzeMemoryPatterns(pods []metrics.PodMetrics) (*ResourceAnalysis, error) {
-	var allValues []float64
-	var podAnalyses []PodResourceAnalysis
-
-	for _, pod := range pods {
-		if len(pod.MemUsageHistory) == 0 {
-			continue
-		}
-
-		podValues := make([]float64, len(pod.MemUsageHistory))
-		for i, usage := range pod.MemUsageHistory {
-			podValues[i] = usage.Value
-			allValues = append(allValues, usage.Value)
-		}
-
-		sort.Float64s(podValues)
-
-		podAnalysis := PodResourceAnalysis{
-			PodName:     pod.PodName,
-			Min:         podValues[0],
-			Max:         podValues[len(podValues)-1],
-			Mean:        a.calculateMean(podValues),
-			P50:         a.calculatePercentile(podValues, 50),
-			P95:         a.calculatePercentile(podValues, 95),
-			P99:         a.calculatePercentile(podValues, 99),
-			StandardDev: a.calculateStandardDeviation(podValues, a.calculateMean(podValues)),
-			DataPoints:  len(podValues),
-		}
-
-		podAnalyses = append(podAnalyses, podAnalysis)
-	}
-
-	if len(allValues) == 0 {
-		return nil, fmt.Errorf("no memory data available")
-	}
-
-	sort.Float64s(allValues)
-
-	return &ResourceAnalysis{
-		ResourceType:    "Memory",
-		Unit:            "bytes",
-		TotalDataPoints: len(allValues),
-		WorkloadMin:     allValues[0],
-		WorkloadMax:     allValues[len(allValues)-1],
-		WorkloadMean:    a.calculateMean(allValues),
-		WorkloadP50:     a.calculatePercentile(allValues, 50),
-		WorkloadP95:     a.calculatePercentile(allValues, 95),
-		WorkloadP99:     a.calculatePercentile(allValues, 99),
-		WorkloadStdDev:  a.calculateStandardDeviation(allValues, a.calculateMean(allValues)),
-		PodAnalyses:     podAnalyses,
-	}, nil
+	return a.analyzeResourcePatterns(pods, "Memory", "bytes", func(pod metrics.PodMetrics) []metrics.ResourceUsage {
+		return pod.MemUsageHistory
+	})
 }
 
 // detectUsagePatterns detects common usage patterns in the workload

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
@@ -281,42 +280,4 @@ func (m *MetricsServerClient) GetWorkloadMetrics(ctx context.Context, namespace,
 		StartTime: time.Now().Add(-window),
 		EndTime:   time.Now(),
 	}, nil
-}
-
-// Simple implementation of quantity parsing
-func parseQuantity(quantity string) (float64, error) {
-	if quantity == "" {
-		return 0, fmt.Errorf("empty quantity")
-	}
-
-	multiplier := 1.0
-	value := quantity
-
-	// Handle common suffixes
-	if len(quantity) > 2 {
-		suffix := quantity[len(quantity)-2:]
-		switch suffix {
-		case "Ki":
-			multiplier = 1024
-			value = quantity[:len(quantity)-2]
-		case "Mi":
-			multiplier = 1024 * 1024
-			value = quantity[:len(quantity)-2]
-		case "Gi":
-			multiplier = 1024 * 1024 * 1024
-			value = quantity[:len(quantity)-2]
-		}
-	}
-
-	if len(quantity) > 1 && quantity[len(quantity)-1:] == "m" {
-		multiplier = 0.001
-		value = quantity[:len(quantity)-1]
-	}
-
-	parsedValue, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse quantity %s: %w", quantity, err)
-	}
-
-	return parsedValue * multiplier, nil
 }
