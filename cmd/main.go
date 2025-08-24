@@ -167,7 +167,7 @@ func main() {
 
 	// Initialize metrics client
 	var metricsClient analyzer.MetricsClientInterface
-	
+
 	if useMockMetrics {
 		setupLog.Info("Using mock metrics client for testing")
 		metricsClient = metrics.NewMockMetricsClient()

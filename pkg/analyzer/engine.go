@@ -24,9 +24,9 @@ type MetricsClientInterface interface {
 type RecommendationEngine struct {
 	DefaultSafetyMargin        int
 	DefaultConfidenceThreshold int
-	MinDataPoints             int
-	CPURequestMultiplier      float64
-	MemoryRequestMultiplier   float64
+	MinDataPoints              int
+	CPURequestMultiplier       float64
+	MemoryRequestMultiplier    float64
 }
 
 // NewRecommendationEngine creates a new recommendation engine with default settings
@@ -34,9 +34,9 @@ func NewRecommendationEngine() *RecommendationEngine {
 	return &RecommendationEngine{
 		DefaultSafetyMargin:        20,
 		DefaultConfidenceThreshold: 70,
-		MinDataPoints:             10,
-		CPURequestMultiplier:      0.8,
-		MemoryRequestMultiplier:   0.9,
+		MinDataPoints:              10,
+		CPURequestMultiplier:       0.8,
+		MemoryRequestMultiplier:    0.9,
 	}
 }
 
@@ -46,7 +46,7 @@ func (r *RecommendationEngine) GenerateRecommendations(
 	workloadMetrics *metrics.WorkloadMetrics,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) ([]rightsizingv1alpha1.PodRecommendation, error) {
-	
+
 	if len(workloadMetrics.Pods) == 0 {
 		return nil, fmt.Errorf("no pod metrics provided")
 	}
@@ -71,7 +71,7 @@ func (r *RecommendationEngine) generatePodRecommendation(
 	podMetrics metrics.PodMetrics,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) (*rightsizingv1alpha1.PodRecommendation, error) {
-	
+
 	// Analyze CPU usage
 	cpuRec, cpuConfidence, err := r.analyzeCPUUsage(podMetrics.CPUUsageHistory, thresholds)
 	if err != nil {
@@ -100,7 +100,7 @@ func (r *RecommendationEngine) generatePodRecommendation(
 	// Set CPU recommendations
 	if cpuRec.Limit != nil {
 		recommendedResources.Limits[corev1.ResourceCPU] = *cpuRec.Limit
-		
+
 		limitValue := cpuRec.Limit.AsApproximateFloat64()
 		requestValue := limitValue * r.CPURequestMultiplier
 		recommendedResources.Requests[corev1.ResourceCPU] = *resource.NewMilliQuantity(
@@ -110,7 +110,7 @@ func (r *RecommendationEngine) generatePodRecommendation(
 	// Set Memory recommendations
 	if memoryRec.Limit != nil {
 		recommendedResources.Limits[corev1.ResourceMemory] = *memoryRec.Limit
-		
+
 		limitValue := memoryRec.Limit.AsApproximateFloat64()
 		requestValue := limitValue * r.MemoryRequestMultiplier
 		recommendedResources.Requests[corev1.ResourceMemory] = *resource.NewQuantity(
@@ -123,28 +123,28 @@ func (r *RecommendationEngine) generatePodRecommendation(
 			Namespace: podMetrics.Namespace,
 		},
 		RecommendedResources: recommendedResources,
-		Confidence:          overallConfidence,
-		Reason:              r.buildReasonString(cpuRec, memoryRec, thresholds),
-		Applied:             false,
+		Confidence:           overallConfidence,
+		Reason:               r.buildReasonString(cpuRec, memoryRec, thresholds),
+		Applied:              false,
 	}
 
 	return recommendation, nil
 }
 
 type ResourceRecommendation struct {
-	Request     *resource.Quantity
-	Limit       *resource.Quantity
-	Percentile  float64
-	Confidence  int
-	DataPoints  int
-	Reason      string
+	Request    *resource.Quantity
+	Limit      *resource.Quantity
+	Percentile float64
+	Confidence int
+	DataPoints int
+	Reason     string
 }
 
 func (r *RecommendationEngine) analyzeCPUUsage(
 	cpuHistory []metrics.ResourceUsage,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) (*ResourceRecommendation, int, error) {
-	
+
 	if len(cpuHistory) < r.MinDataPoints {
 		return nil, 0, fmt.Errorf("insufficient CPU data points: %d < %d", len(cpuHistory), r.MinDataPoints)
 	}
@@ -166,7 +166,7 @@ func (r *RecommendationEngine) analyzeCPUUsage(
 	if thresholds.SafetyMargin > 0 {
 		safetyMargin = thresholds.SafetyMargin
 	}
-	
+
 	recommendedLimit := percentileValue * (1.0 + float64(safetyMargin)/100.0)
 
 	// Apply min/max constraints
@@ -200,7 +200,7 @@ func (r *RecommendationEngine) analyzeMemoryUsage(
 	memoryHistory []metrics.ResourceUsage,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) (*ResourceRecommendation, int, error) {
-	
+
 	if len(memoryHistory) < r.MinDataPoints {
 		return nil, 0, fmt.Errorf("insufficient memory data points: %d < %d", len(memoryHistory), r.MinDataPoints)
 	}
@@ -222,7 +222,7 @@ func (r *RecommendationEngine) analyzeMemoryUsage(
 	if thresholds.SafetyMargin > 0 {
 		safetyMargin = thresholds.SafetyMargin
 	}
-	
+
 	recommendedLimit := percentileValue * (1.0 + float64(safetyMargin)/100.0)
 
 	if thresholds.MinMemory != nil {

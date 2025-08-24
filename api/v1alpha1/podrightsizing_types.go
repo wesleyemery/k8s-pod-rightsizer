@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -108,16 +109,16 @@ type ResourceThresholds struct {
 	MemoryUtilizationPercentile int `json:"memoryUtilizationPercentile,omitempty"`
 
 	// MinCPU defines minimum CPU request
-	MinCPU *corev1.Quantity `json:"minCpu,omitempty"`
+	MinCPU resource.Quantity `json:"minCpu,omitempty"`
 
 	// MaxCPU defines maximum CPU request
-	MaxCPU *corev1.Quantity `json:"maxCpu,omitempty"`
+	MaxCPU resource.Quantity `json:"maxCpu,omitempty"`
 
 	// MinMemory defines minimum memory request
-	MinMemory *corev1.Quantity `json:"minMemory,omitempty"`
+	MinMemory resource.Quantity `json:"minMemory,omitempty"`
 
 	// MaxMemory defines maximum memory request
-	MaxMemory *corev1.Quantity `json:"maxMemory,omitempty"`
+	MaxMemory resource.Quantity `json:"maxMemory,omitempty"`
 
 	// SafetyMargin defines safety margin percentage for recommendations
 	// +kubebuilder:default=20
@@ -142,7 +143,7 @@ type MetricsSourceSpec struct {
 type MetricsSourceType string
 
 const (
-	MetricsSourcePrometheus   MetricsSourceType = "prometheus"
+	MetricsSourcePrometheus    MetricsSourceType = "prometheus"
 	MetricsSourceMetricsServer MetricsSourceType = "metrics-server"
 )
 
@@ -260,13 +261,13 @@ type PodReference struct {
 // ResourceSavings estimates potential savings from applying recommendations
 type ResourceSavings struct {
 	// CPUSavings estimates CPU savings (in cores)
-	CPUSavings *corev1.Quantity `json:"cpuSavings,omitempty"`
+	CPUSavings resource.Quantity `json:"cpuSavings,omitempty"`
 
 	// MemorySavings estimates memory savings (in bytes)
-	MemorySavings *corev1.Quantity `json:"memorySavings,omitempty"`
+	MemorySavings resource.Quantity `json:"memorySavings,omitempty"`
 
-	// CostSavings estimates cost savings (in USD per month)
-	CostSavings *float64 `json:"costSavings,omitempty"`
+	// CostSavings estimates cost savings (in USD per month, as string for CRD compatibility)
+	CostSavings string `json:"costSavings,omitempty"`
 }
 
 //+kubebuilder:object:root=true
