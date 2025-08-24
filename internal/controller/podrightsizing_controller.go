@@ -43,6 +43,12 @@ import (
 	"github.com/wesleyemery/k8s-pod-rightsizer/pkg/analyzer"
 )
 
+const (
+	WorkloadTypeDeployment  = "Deployment"
+	WorkloadTypeStatefulSet = "StatefulSet"
+	WorkloadTypeDaemonSet   = "DaemonSet"
+)
+
 // PodRightSizingReconciler reconciles a PodRightSizing object
 type PodRightSizingReconciler struct {
 	client.Client
@@ -332,11 +338,11 @@ func (r *PodRightSizingReconciler) getWorkloadType(pod *corev1.Pod) string {
 	for _, owner := range pod.OwnerReferences {
 		switch owner.Kind {
 		case "ReplicaSet":
-			return "Deployment"
+			return WorkloadTypeDeployment
 		case "StatefulSet":
-			return "StatefulSet"
+			return WorkloadTypeStatefulSet
 		case "DaemonSet":
-			return "DaemonSet"
+			return WorkloadTypeDaemonSet
 		case "Job":
 			return "Job"
 		case "CronJob":
@@ -997,11 +1003,11 @@ func (r *PodRightSizingReconciler) workloadMatchesTarget(obj client.Object, prs 
 func (r *PodRightSizingReconciler) getWorkloadTypeFromObject(obj client.Object) string {
 	switch obj.(type) {
 	case *appsv1.Deployment:
-		return "Deployment"
+		return WorkloadTypeDeployment
 	case *appsv1.StatefulSet:
-		return "StatefulSet"
+		return WorkloadTypeStatefulSet
 	case *appsv1.DaemonSet:
-		return "DaemonSet"
+		return WorkloadTypeDaemonSet
 	default:
 		return "Unknown"
 	}

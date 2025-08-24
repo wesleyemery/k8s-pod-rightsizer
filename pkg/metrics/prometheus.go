@@ -34,7 +34,11 @@ func NewPrometheusClient(prometheusURL string, roundTripper http.RoundTripper) (
 }
 
 // GetPodMetrics retrieves metrics for a specific pod
-func (p *PrometheusClient) GetPodMetrics(ctx context.Context, namespace, podName string, window time.Duration) (*PodMetrics, error) {
+func (p *PrometheusClient) GetPodMetrics(
+	ctx context.Context,
+	namespace, podName string,
+	window time.Duration,
+) (*PodMetrics, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-window)
 
@@ -83,7 +87,11 @@ func (p *PrometheusClient) GetPodMetrics(ctx context.Context, namespace, podName
 }
 
 // GetWorkloadMetrics retrieves aggregated metrics for a workload
-func (p *PrometheusClient) GetWorkloadMetrics(ctx context.Context, namespace, workloadName, workloadType string, window time.Duration) (*WorkloadMetrics, error) {
+func (p *PrometheusClient) GetWorkloadMetrics(
+	ctx context.Context,
+	namespace, workloadName, workloadType string,
+	window time.Duration,
+) (*WorkloadMetrics, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-window)
 
@@ -215,7 +223,7 @@ func (p *PrometheusClient) convertMatrixToUsageHistory(result model.Value, unit 
 }
 
 func (p *PrometheusClient) convertSamplePairToUsageHistory(values []model.SamplePair, unit string) []ResourceUsage {
-	var history []ResourceUsage
+	history := make([]ResourceUsage, 0, len(values))
 	for _, value := range values {
 		history = append(history, ResourceUsage{
 			Timestamp: value.Timestamp.Time(),
@@ -241,7 +249,11 @@ func NewMetricsServerClient(baseURL string) *MetricsServerClient {
 }
 
 // GetPodMetrics retrieves current metrics from Metrics Server
-func (m *MetricsServerClient) GetPodMetrics(ctx context.Context, namespace, podName string, window time.Duration) (*PodMetrics, error) {
+func (m *MetricsServerClient) GetPodMetrics(
+	ctx context.Context,
+	namespace, podName string,
+	window time.Duration,
+) (*PodMetrics, error) {
 	// This is a simplified implementation for testing
 	// In production, you'd query the actual metrics server API
 	return &PodMetrics{
@@ -259,7 +271,11 @@ func (m *MetricsServerClient) GetPodMetrics(ctx context.Context, namespace, podN
 }
 
 // GetWorkloadMetrics retrieves current metrics for a workload from Metrics Server
-func (m *MetricsServerClient) GetWorkloadMetrics(ctx context.Context, namespace, workloadName, workloadType string, window time.Duration) (*WorkloadMetrics, error) {
+func (m *MetricsServerClient) GetWorkloadMetrics(
+	ctx context.Context,
+	namespace, workloadName, workloadType string,
+	window time.Duration,
+) (*WorkloadMetrics, error) {
 	// This is a simplified implementation for testing
 	return &WorkloadMetrics{
 		WorkloadName: workloadName,

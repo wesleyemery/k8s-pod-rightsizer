@@ -25,7 +25,11 @@ func NewMockMetricsClient() *MockMetricsClient {
 }
 
 // GetPodMetrics generates fake pod metrics for testing
-func (m *MockMetricsClient) GetPodMetrics(ctx context.Context, namespace, podName string, window time.Duration) (*PodMetrics, error) {
+func (m *MockMetricsClient) GetPodMetrics(
+	ctx context.Context,
+	namespace, podName string,
+	window time.Duration,
+) (*PodMetrics, error) {
 	now := time.Now()
 	start := now.Add(-window)
 
@@ -80,7 +84,11 @@ func (m *MockMetricsClient) GetPodMetrics(ctx context.Context, namespace, podNam
 }
 
 // GetWorkloadMetrics generates fake workload metrics for testing
-func (m *MockMetricsClient) GetWorkloadMetrics(ctx context.Context, namespace, workloadName, workloadType string, window time.Duration) (*WorkloadMetrics, error) {
+func (m *MockMetricsClient) GetWorkloadMetrics(
+	ctx context.Context,
+	namespace, workloadName, workloadType string,
+	window time.Duration,
+) (*WorkloadMetrics, error) {
 	// Simulate multiple pods in the workload
 	podCount := 3
 	var pods []PodMetrics

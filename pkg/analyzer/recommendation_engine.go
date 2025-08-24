@@ -628,7 +628,8 @@ func (a *AdvancedAnalyzer) generateWorkloadRecommendations(analysis *WorkloadAna
 		rec := WorkloadRecommendation{
 			Type: "CPU Optimization",
 			Description: fmt.Sprintf(
-				"Based on analysis of %d pods with %d total data points, recommend setting CPU limits to %.3f cores (95th percentile: %.3f + 20%% safety margin)",
+				"Based on analysis of %d pods with %d total data points, "+
+					"recommend setting CPU limits to %.3f cores (95th percentile: %.3f + 20%% safety margin)",
 				analysis.TotalPods,
 				analysis.CPUAnalysis.TotalDataPoints,
 				analysis.CPUAnalysis.WorkloadP95*1.2,
@@ -645,7 +646,8 @@ func (a *AdvancedAnalyzer) generateWorkloadRecommendations(analysis *WorkloadAna
 		rec := WorkloadRecommendation{
 			Type: "Memory Optimization",
 			Description: fmt.Sprintf(
-				"Based on analysis of %d pods with %d total data points, recommend setting Memory limits to %.0f MB (95th percentile: %.0f + 20%% safety margin)",
+				"Based on analysis of %d pods with %d total data points, "+
+					"recommend setting Memory limits to %.0f MB (95th percentile: %.0f + 20%% safety margin)",
 				analysis.TotalPods,
 				analysis.MemoryAnalysis.TotalDataPoints,
 				analysis.MemoryAnalysis.WorkloadP95*1.2/1024/1024,
