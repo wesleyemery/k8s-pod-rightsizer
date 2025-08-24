@@ -12,6 +12,7 @@ issues:
     - path: "api/*"
       linters:
         - lll
+        - revive # Disable revive for kubebuilder comments
     - path: "internal/*"
       linters:
         - dupl

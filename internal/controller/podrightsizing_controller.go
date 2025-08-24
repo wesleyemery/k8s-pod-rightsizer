@@ -145,14 +145,7 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return ctrl.Result{}, err
 		}
 
-		updatedCount, err := r.applyRecommendations(ctx, &podRightSizing, allRecommendations)
-		if err != nil {
-			logger.Error(err, "Failed to apply some recommendations")
-			if updateErr := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseError, fmt.Sprintf("Failed to apply recommendations: %v", err)); updateErr != nil {
-				logger.Error(updateErr, "Failed to update phase to error")
-			}
-			return ctrl.Result{RequeueAfter: 5 * time.Minute}, err
-		}
+		updatedCount := r.applyRecommendations(ctx, &podRightSizing, allRecommendations)
 
 		podRightSizing.Status.UpdatedPods = int32(updatedCount)
 		podRightSizing.Status.LastUpdateTime = &metav1.Time{Time: time.Now()}
@@ -513,7 +506,7 @@ func (r *PodRightSizingReconciler) applyRecommendations(
 	ctx context.Context,
 	prs *rightsizingv1alpha1.PodRightSizing,
 	recommendations []rightsizingv1alpha1.PodRecommendation,
-) (int, error) {
+) int {
 
 	logger := log.FromContext(ctx)
 	updatedCount := 0
@@ -538,7 +531,7 @@ func (r *PodRightSizingReconciler) applyRecommendations(
 		updatedCount += updated
 	}
 
-	return updatedCount, nil
+	return updatedCount
 }
 
 // applyWorkloadRecommendations applies recommendations for a specific workload

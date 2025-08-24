@@ -202,7 +202,7 @@ func (r *RecommendationEngine) analyzeCPUUsage(
 	}
 
 	// Calculate confidence based on data consistency
-	confidence := r.calculateConfidence(values, percentileValue)
+	confidence := r.calculateConfidence(values)
 
 	// Convert to Kubernetes resource format
 	limitQuantity := resource.NewMilliQuantity(int64(recommendedLimit*1000), resource.DecimalSI)
@@ -268,7 +268,7 @@ func (r *RecommendationEngine) analyzeMemoryUsage(
 	}
 
 	// Calculate confidence based on data consistency
-	confidence := r.calculateConfidence(values, percentileValue)
+	confidence := r.calculateConfidence(values)
 
 	// Convert to Kubernetes resource format
 	limitQuantity := resource.NewQuantity(int64(recommendedLimit), resource.BinarySI)
@@ -312,7 +312,7 @@ func (r *RecommendationEngine) calculatePercentile(sortedValues []float64, perce
 }
 
 // calculateConfidence calculates confidence level based on data variance
-func (r *RecommendationEngine) calculateConfidence(values []float64, percentileValue float64) int {
+func (r *RecommendationEngine) calculateConfidence(values []float64) int {
 	if len(values) < 2 {
 		return 50 // Low confidence with insufficient data
 	}
@@ -614,7 +614,7 @@ func (a *AdvancedAnalyzer) analyzeTimeSeries(usage []metrics.ResourceUsage, reso
 		ResourceType: resourceType,
 		PatternType:  patternType,
 		SpikePattern: spikePattern,
-		Confidence:   a.calculateConfidence(values, mean),
+		Confidence:   a.calculateConfidence(values),
 		Description:  fmt.Sprintf("%s usage shows %s pattern with %s spikes", resourceType, patternType, spikePattern),
 	}
 }
@@ -665,7 +665,8 @@ func (a *AdvancedAnalyzer) generateWorkloadRecommendations(analysis *WorkloadAna
 			rec := WorkloadRecommendation{
 				Type: "Scaling Strategy",
 				Description: fmt.Sprintf(
-					"Pod %s shows variable %s usage patterns. Consider implementing Horizontal Pod Autoscaling (HPA) or Vertical Pod Autoscaling (VPA)",
+					"Pod %s shows variable %s usage patterns. "+
+						"Consider implementing Horizontal Pod Autoscaling (HPA) or Vertical Pod Autoscaling (VPA)",
 					pattern.PodName,
 					pattern.ResourceType,
 				),
