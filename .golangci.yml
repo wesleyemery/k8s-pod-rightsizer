@@ -17,6 +17,7 @@ issues:
       linters:
         - dupl
         - lll
+        - revive # Disable revive for kubebuilder RBAC comments
 linters:
   disable-all: true
   enable:
