@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	defaultBaseCPU      = 0.05     // 50m cores
-	defaultBaseMemory   = 67108864 // 64Mi bytes
-	defaultVariance     = 0.3      // 30% variance
-	varianceOffset      = 0.5
-	varianceMultiplier  = 2
+	defaultBaseCPU                 = 0.05     // 50m cores
+	defaultBaseMemory              = 67108864 // 64Mi bytes
+	defaultVariance                = 0.3      // 30% variance
+	varianceOffset                 = 0.5
+	varianceMultiplier             = 2
 	minDataPointsForClassification = 20
 )
 

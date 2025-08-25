@@ -204,7 +204,7 @@ func GetProjectDir() (string, error) {
 // UncommentCode searches for target in the file and remove the comment prefix
 // of the target content. The target content may span multiple lines.
 func UncommentCode(filename, target, prefix string) error {
-	content, err := os.ReadFile(filename) //nolint:gosec
+	content, err := os.ReadFile(filename)
 	if err != nil {
 		return err
 	}

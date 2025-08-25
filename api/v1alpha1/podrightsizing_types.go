@@ -50,7 +50,7 @@ type PodRightSizingSpec struct {
 	DryRun bool `json:"dryRun,omitempty"`
 }
 
-// TargetSpec defines which pods to target for right-sizing
+// TargetSpec defines which pods to target for right-sizing.
 type TargetSpec struct {
 	// Namespace to look for pods in. If empty, uses all namespaces
 	Namespace string `json:"namespace,omitempty"`
@@ -68,7 +68,7 @@ type TargetSpec struct {
 	IncludeWorkloadTypes []string `json:"includeWorkloadTypes,omitempty"`
 }
 
-// UpdatePolicy defines how resource updates should be applied
+// UpdatePolicy defines how resource updates should be applied.
 type UpdatePolicy struct {
 	// Strategy defines the update strategy: "immediate", "gradual", or "manual"
 	// +kubebuilder:default="gradual"
@@ -282,7 +282,7 @@ type ResourceSavings struct {
 //+kubebuilder:printcolumn:name="Last Analysis",type="date",JSONPath=".status.lastAnalysisTime"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// PodRightSizing is the Schema for the podrightsizings API
+// PodRightSizing is the Schema for the podrightsizings API.
 type PodRightSizing struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -293,7 +293,7 @@ type PodRightSizing struct {
 
 //+kubebuilder:object:root=true
 
-// PodRightSizingList contains a list of PodRightSizing
+// PodRightSizingList contains a list of PodRightSizing.
 type PodRightSizingList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

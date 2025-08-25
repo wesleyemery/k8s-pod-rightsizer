@@ -107,7 +107,7 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if len(targetPods) > math.MaxInt32 {
 		return ctrl.Result{}, fmt.Errorf("too many target pods: %d exceeds int32 limit", len(targetPods))
 	}
-	podRightSizing.Status.TargetedPods = int32(len(targetPods))
+	podRightSizing.Status.TargetedPods = int32(len(targetPods)) //nolint:gosec
 
 	if len(targetPods) == 0 {
 		logger.Info("No pods found matching criteria")
@@ -118,7 +118,7 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Group pods by workload
-	workloadGroups := r.groupPodsByWorkload(targetPods)
+	workloadGroups := r.groupPodsByWorkload(ctx, targetPods)
 
 	// Update phase to recommending
 	if err := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseRecommending, "Generating recommendations"); err != nil {
@@ -155,7 +155,7 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if updatedCount > math.MaxInt32 {
 			return ctrl.Result{}, fmt.Errorf("too many updated pods: %d exceeds int32 limit", updatedCount)
 		}
-		podRightSizing.Status.UpdatedPods = int32(updatedCount)
+		podRightSizing.Status.UpdatedPods = int32(updatedCount) //nolint:gosec
 		podRightSizing.Status.LastUpdateTime = &metav1.Time{Time: time.Now()}
 	}
 
@@ -354,11 +354,11 @@ func (r *PodRightSizingReconciler) getWorkloadType(pod *corev1.Pod) string {
 }
 
 // groupPodsByWorkload groups pods by their parent workload
-func (r *PodRightSizingReconciler) groupPodsByWorkload(pods []corev1.Pod) map[string][]corev1.Pod {
+func (r *PodRightSizingReconciler) groupPodsByWorkload(ctx context.Context, pods []corev1.Pod) map[string][]corev1.Pod {
 	groups := make(map[string][]corev1.Pod)
 
 	for _, pod := range pods {
-		workloadName := r.getWorkloadName(context.Background(), &pod)
+		workloadName := r.getWorkloadName(ctx, &pod)
 		workloadType := r.getWorkloadType(&pod)
 		key := fmt.Sprintf("%s/%s/%s", pod.Namespace, workloadType, workloadName)
 		groups[key] = append(groups[key], pod)
@@ -714,11 +714,11 @@ func (r *PodRightSizingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					newPod := e.ObjectNew.(*corev1.Pod)
 					return !r.containerResourcesEqual(oldPod.Spec.Containers, newPod.Spec.Containers)
 				},
-				CreateFunc: func(e event.CreateEvent) bool {
+				CreateFunc: func(_ event.CreateEvent) bool {
 					// Trigger on new pod creation
 					return true
 				},
-				DeleteFunc: func(e event.DeleteEvent) bool {
+				DeleteFunc: func(_ event.DeleteEvent) bool {
 					// Don't trigger on pod deletion
 					return false
 				},
@@ -777,7 +777,7 @@ func (r *PodRightSizingReconciler) podToRightSizingRequests(ctx context.Context,
 
 	var requests []reconcile.Request
 	for _, prs := range rightSizingList.Items {
-		if r.podMatchesTarget(pod, &prs) {
+		if r.podMatchesTarget(ctx, pod, &prs) {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      prs.Name,
@@ -800,7 +800,7 @@ func (r *PodRightSizingReconciler) workloadToRightSizingRequests(ctx context.Con
 
 	var requests []reconcile.Request
 	for _, prs := range rightSizingList.Items {
-		if r.workloadMatchesTarget(obj, &prs) {
+		if r.workloadMatchesTarget(ctx, obj, &prs) {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      prs.Name,
@@ -814,7 +814,7 @@ func (r *PodRightSizingReconciler) workloadToRightSizingRequests(ctx context.Con
 }
 
 // podMatchesTarget checks if a pod matches the target criteria
-func (r *PodRightSizingReconciler) podMatchesTarget(pod *corev1.Pod, prs *rightsizingv1alpha1.PodRightSizing) bool {
+func (r *PodRightSizingReconciler) podMatchesTarget(ctx context.Context, pod *corev1.Pod, prs *rightsizingv1alpha1.PodRightSizing) bool {
 	// Check namespace
 	if prs.Spec.Target.Namespace != "" && pod.Namespace != prs.Spec.Target.Namespace {
 		return false
@@ -840,7 +840,7 @@ func (r *PodRightSizingReconciler) podMatchesTarget(pod *corev1.Pod, prs *rights
 	if prs.Spec.Target.NamespaceSelector != nil {
 		// Get the namespace object to check its labels
 		var namespace corev1.Namespace
-		if err := r.Get(context.Background(), types.NamespacedName{Name: pod.Namespace}, &namespace); err != nil {
+		if err := r.Get(ctx, types.NamespacedName{Name: pod.Namespace}, &namespace); err != nil {
 			return false
 		}
 
@@ -872,11 +872,11 @@ func (r *PodRightSizingReconciler) podMatchesTarget(pod *corev1.Pod, prs *rights
 }
 
 // workloadMatchesTarget checks if a workload matches the target criteria
-func (r *PodRightSizingReconciler) workloadMatchesTarget(obj client.Object, prs *rightsizingv1alpha1.PodRightSizing) bool {
+func (r *PodRightSizingReconciler) workloadMatchesTarget(ctx context.Context, obj client.Object, prs *rightsizingv1alpha1.PodRightSizing) bool {
 	return r.matchesNamespace(obj, prs) &&
 		r.matchesWorkloadType(obj, prs) &&
 		r.matchesLabelSelector(obj, prs) &&
-		r.matchesNamespaceSelector(obj, prs)
+		r.matchesNamespaceSelector(ctx, obj, prs)
 }
 
 // matchesNamespace checks if workload matches namespace criteria
@@ -918,13 +918,13 @@ func (r *PodRightSizingReconciler) matchesLabelSelector(obj client.Object, prs *
 }
 
 // matchesNamespaceSelector checks if workload's namespace matches selector
-func (r *PodRightSizingReconciler) matchesNamespaceSelector(obj client.Object, prs *rightsizingv1alpha1.PodRightSizing) bool {
+func (r *PodRightSizingReconciler) matchesNamespaceSelector(ctx context.Context, obj client.Object, prs *rightsizingv1alpha1.PodRightSizing) bool {
 	if prs.Spec.Target.NamespaceSelector == nil {
 		return true
 	}
 
 	var namespace corev1.Namespace
-	if err := r.Get(context.Background(), types.NamespacedName{Name: obj.GetNamespace()}, &namespace); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Name: obj.GetNamespace()}, &namespace); err != nil {
 		return false
 	}
 

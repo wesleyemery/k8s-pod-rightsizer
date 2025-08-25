@@ -13,8 +13,8 @@ import (
 
 const (
 	httpTimeoutSeconds = 30
-	mockCPUValue      = 0.05     // 50m cores
-	mockMemoryValue   = 67108864 // 64Mi bytes
+	mockCPUValue       = 0.05     // 50m cores
+	mockMemoryValue    = 67108864 // 64Mi bytes
 )
 
 // PrometheusClient implements MetricsClient interface for Prometheus

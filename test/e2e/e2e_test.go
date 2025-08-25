@@ -24,8 +24,8 @@ import (
 	"path/filepath"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint:revive
+	. "github.com/onsi/gomega" //nolint:revive
 
 	"github.com/wesleyemery/k8s-pod-rightsizer/test/utils"
 )
