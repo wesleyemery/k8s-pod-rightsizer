@@ -38,7 +38,7 @@ func NewRecommendationEngine() *RecommendationEngine {
 
 // GenerateRecommendations generates resource recommendations for a workload
 func (r *RecommendationEngine) GenerateRecommendations(
-	ctx context.Context,
+	_ context.Context,
 	workloadMetrics *metrics.WorkloadMetrics,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) ([]rightsizingv1alpha1.PodRecommendation, error) {

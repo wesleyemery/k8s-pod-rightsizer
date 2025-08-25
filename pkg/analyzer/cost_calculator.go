@@ -106,7 +106,6 @@ func (c *CostCalculator) EstimateClusterSavings(recommendations []rightsizingv1a
 		CloudProvider:        c.CloudProvider,
 	}
 
-	totalMonthlySavings := 0.0
 	totalCPUSavings := 0.0
 	totalMemorySavings := 0.0
 
@@ -119,7 +118,7 @@ func (c *CostCalculator) EstimateClusterSavings(recommendations []rightsizingv1a
 		}
 	}
 
-	totalMonthlySavings = totalCPUSavings*c.CPUCostPerCoreMonth + totalMemorySavings*c.MemoryCostPerGBMonth
+	totalMonthlySavings := totalCPUSavings*c.CPUCostPerCoreMonth + totalMemorySavings*c.MemoryCostPerGBMonth
 
 	report.TotalCPUSavings = fmt.Sprintf("%.3f cores", totalCPUSavings)
 	report.TotalMemorySavings = fmt.Sprintf("%.2f GB", totalMemorySavings)

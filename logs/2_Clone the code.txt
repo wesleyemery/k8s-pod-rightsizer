@@ -1,0 +1,85 @@
+﻿2025-08-24T23:28:49.5424963Z ##[group]Run actions/checkout@v4
+2025-08-24T23:28:49.5426395Z with:
+2025-08-24T23:28:49.5427327Z   repository: wesleyemery/k8s-pod-rightsizer
+2025-08-24T23:28:49.5428729Z   token: ***
+2025-08-24T23:28:49.5429519Z   ssh-strict: true
+2025-08-24T23:28:49.5430350Z   ssh-user: git
+2025-08-24T23:28:49.5431190Z   persist-credentials: true
+2025-08-24T23:28:49.5432120Z   clean: true
+2025-08-24T23:28:49.5432957Z   sparse-checkout-cone-mode: true
+2025-08-24T23:28:49.5434137Z   fetch-depth: 1
+2025-08-24T23:28:49.5434962Z   fetch-tags: false
+2025-08-24T23:28:49.5435827Z   show-progress: true
+2025-08-24T23:28:49.5436682Z   lfs: false
+2025-08-24T23:28:49.5437460Z   submodules: false
+2025-08-24T23:28:49.5438313Z   set-safe-directory: true
+2025-08-24T23:28:49.5439480Z ##[endgroup]
+2025-08-24T23:28:49.6530087Z Syncing repository: wesleyemery/k8s-pod-rightsizer
+2025-08-24T23:28:49.6534459Z ##[group]Getting Git version info
+2025-08-24T23:28:49.6536508Z Working directory is '/home/runner/work/k8s-pod-rightsizer/k8s-pod-rightsizer'
+2025-08-24T23:28:49.6539038Z [command]/usr/bin/git version
+2025-08-24T23:28:49.6579553Z git version 2.51.0
+2025-08-24T23:28:49.6607414Z ##[endgroup]
+2025-08-24T23:28:49.6623477Z Temporarily overriding HOME='/home/runner/work/_temp/2a4bf02b-b4c6-43d0-a148-557962418953' before making global git config changes
+2025-08-24T23:28:49.6628810Z Adding repository directory to the temporary git global config as a safe directory
+2025-08-24T23:28:49.6634230Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/k8s-pod-rightsizer/k8s-pod-rightsizer
+2025-08-24T23:28:49.6670434Z Deleting the contents of '/home/runner/work/k8s-pod-rightsizer/k8s-pod-rightsizer'
+2025-08-24T23:28:49.6673283Z ##[group]Initializing the repository
+2025-08-24T23:28:49.6677773Z [command]/usr/bin/git init /home/runner/work/k8s-pod-rightsizer/k8s-pod-rightsizer
+2025-08-24T23:28:49.6737183Z hint: Using 'master' as the name for the initial branch. This default branch name
+2025-08-24T23:28:49.6739150Z hint: is subject to change. To configure the initial branch name to use in all
+2025-08-24T23:28:49.6741267Z hint: of your new repositories, which will suppress this warning, call:
+2025-08-24T23:28:49.6742629Z hint:
+2025-08-24T23:28:49.6743706Z hint: 	git config --global init.defaultBranch <name>
+2025-08-24T23:28:49.6745709Z hint:
+2025-08-24T23:28:49.6746850Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2025-08-24T23:28:49.6748660Z hint: 'development'. The just-created branch can be renamed via this command:
+2025-08-24T23:28:49.6750315Z hint:
+2025-08-24T23:28:49.6751100Z hint: 	git branch -m <name>
+2025-08-24T23:28:49.6751986Z hint:
+2025-08-24T23:28:49.6753337Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2025-08-24T23:28:49.6756213Z Initialized empty Git repository in /home/runner/work/k8s-pod-rightsizer/k8s-pod-rightsizer/.git/
+2025-08-24T23:28:49.6759695Z [command]/usr/bin/git remote add origin https://github.com/wesleyemery/k8s-pod-rightsizer
+2025-08-24T23:28:49.6794546Z ##[endgroup]
+2025-08-24T23:28:49.6796194Z ##[group]Disabling automatic garbage collection
+2025-08-24T23:28:49.6797787Z [command]/usr/bin/git config --local gc.auto 0
+2025-08-24T23:28:49.6826207Z ##[endgroup]
+2025-08-24T23:28:49.6827564Z ##[group]Setting up auth
+2025-08-24T23:28:49.6832569Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-08-24T23:28:49.6865583Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-08-24T23:28:49.7155568Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-08-24T23:28:49.7185463Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-08-24T23:28:49.7401350Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2025-08-24T23:28:49.7436561Z ##[endgroup]
+2025-08-24T23:28:49.7437978Z ##[group]Fetching the repository
+2025-08-24T23:28:49.7445791Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d589cd9b46f9bd70327e6eb83df554f56c47d914:refs/remotes/pull/3/merge
+2025-08-24T23:28:49.9996938Z From https://github.com/wesleyemery/k8s-pod-rightsizer
+2025-08-24T23:28:49.9999783Z  * [new ref]         d589cd9b46f9bd70327e6eb83df554f56c47d914 -> pull/3/merge
+2025-08-24T23:28:50.0028582Z ##[endgroup]
+2025-08-24T23:28:50.0030855Z ##[group]Determining the checkout info
+2025-08-24T23:28:50.0033379Z ##[endgroup]
+2025-08-24T23:28:50.0036161Z [command]/usr/bin/git sparse-checkout disable
+2025-08-24T23:28:50.0076500Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2025-08-24T23:28:50.0105900Z ##[group]Checking out the ref
+2025-08-24T23:28:50.0108874Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/3/merge
+2025-08-24T23:28:50.0183183Z Note: switching to 'refs/remotes/pull/3/merge'.
+2025-08-24T23:28:50.0184523Z 
+2025-08-24T23:28:50.0185253Z You are in 'detached HEAD' state. You can look around, make experimental
+2025-08-24T23:28:50.0187006Z changes and commit them, and you can discard any commits you make in this
+2025-08-24T23:28:50.0188762Z state without impacting any branches by switching back to a branch.
+2025-08-24T23:28:50.0189912Z 
+2025-08-24T23:28:50.0190954Z If you want to create a new branch to retain commits you create, you may
+2025-08-24T23:28:50.0193349Z do so (now or later) by using -c with the switch command. Example:
+2025-08-24T23:28:50.0195056Z 
+2025-08-24T23:28:50.0195545Z   git switch -c <new-branch-name>
+2025-08-24T23:28:50.0196319Z 
+2025-08-24T23:28:50.0196703Z Or undo this operation with:
+2025-08-24T23:28:50.0197315Z 
+2025-08-24T23:28:50.0197642Z   git switch -
+2025-08-24T23:28:50.0198131Z 
+2025-08-24T23:28:50.0198900Z Turn off this advice by setting config variable advice.detachedHead to false
+2025-08-24T23:28:50.0200408Z 
+2025-08-24T23:28:50.0201646Z HEAD is now at d589cd9 Merge 872711f91d59c1fa31b7f5da1bfffa247c29a2e6 into f1032f208553ee78554091fe994f161ab5f11827
+2025-08-24T23:28:50.0205412Z ##[endgroup]
+2025-08-24T23:28:50.0228150Z [command]/usr/bin/git log -1 --format=%H
+2025-08-24T23:28:50.0249408Z d589cd9b46f9bd70327e6eb83df554f56c47d914

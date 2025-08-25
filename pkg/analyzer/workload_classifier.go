@@ -17,12 +17,12 @@ type WorkloadClassifier struct {
 	MinDataPointsForClassification int
 }
 
-// NewWorkloadClassifier creates a new workload classifier
+// NewWorkloadClassifier creates a new workload classifier.
 func NewWorkloadClassifier() *WorkloadClassifier {
 	return &WorkloadClassifier{
-		HighVariabilityThreshold:       0.3, // 30% coefficient of variation
-		SpikeDetectionThreshold:        2.0, // 2 standard deviations
-		MinDataPointsForClassification: 20,
+		HighVariabilityThreshold:       defaultHighVariabilityThreshold,
+		SpikeDetectionThreshold:        defaultSpikeDetectionThreshold,
+		MinDataPointsForClassification: defaultMinDataPointsForClassification,
 	}
 }
 
@@ -36,6 +36,20 @@ const (
 	WorkloadClassGrowing       WorkloadClass = "Growing"       // Increasing trend
 	WorkloadClassShrinking     WorkloadClass = "Shrinking"     // Decreasing trend
 	WorkloadClassUnpredictable WorkloadClass = "Unpredictable" // Chaotic patterns
+)
+
+// Trend direction constants
+const (
+	TrendDirectionIncreasing = "increasing"
+	TrendDirectionDecreasing = "decreasing"
+	TrendDirectionStable     = "stable"
+)
+
+// Classification constants
+const (
+	defaultHighVariabilityThreshold       = 0.3 // 30% coefficient of variation
+	defaultSpikeDetectionThreshold        = 2.0 // 2 standard deviations
+	defaultMinDataPointsForClassification = 20
 )
 
 // WorkloadClassification contains the classification results
@@ -164,10 +178,10 @@ func (w *WorkloadClassifier) analyzeResourcePattern(workloadMetrics *metrics.Wor
 func (w *WorkloadClassifier) determineWorkloadClass(cpuPattern, memPattern ResourcePattern) WorkloadClass {
 	// Check for growing/shrinking trends first
 	if cpuPattern.TrendStrength > 0.7 || memPattern.TrendStrength > 0.7 {
-		if cpuPattern.TrendDirection == "increasing" || memPattern.TrendDirection == "increasing" {
+		if cpuPattern.TrendDirection == TrendDirectionIncreasing || memPattern.TrendDirection == TrendDirectionIncreasing {
 			return WorkloadClassGrowing
 		}
-		if cpuPattern.TrendDirection == "decreasing" || memPattern.TrendDirection == "decreasing" {
+		if cpuPattern.TrendDirection == TrendDirectionDecreasing || memPattern.TrendDirection == TrendDirectionDecreasing {
 			return WorkloadClassShrinking
 		}
 	}
@@ -339,26 +353,26 @@ func (w *WorkloadClassifier) calculateMin(values []float64) float64 {
 	if len(values) == 0 {
 		return 0
 	}
-	min := values[0]
+	minVal := values[0]
 	for _, v := range values {
-		if v < min {
-			min = v
+		if v < minVal {
+			minVal = v
 		}
 	}
-	return min
+	return minVal
 }
 
 func (w *WorkloadClassifier) calculateMax(values []float64) float64 {
 	if len(values) == 0 {
 		return 0
 	}
-	max := values[0]
+	maxVal := values[0]
 	for _, v := range values {
-		if v > max {
-			max = v
+		if v > maxVal {
+			maxVal = v
 		}
 	}
-	return max
+	return maxVal
 }
 
 func (w *WorkloadClassifier) calculatePercentile(values []float64, percentile float64) float64 {
@@ -391,9 +405,9 @@ func (w *WorkloadClassifier) calculatePercentile(values []float64, percentile fl
 	return sorted[lower]*(1-weight) + sorted[upper]*weight
 }
 
-func (w *WorkloadClassifier) analyzeTrend(values []float64) (direction string, strength float64) {
+func (w *WorkloadClassifier) analyzeTrend(values []float64) (string, float64) {
 	if len(values) < 10 {
-		return "stable", 0.0
+		return TrendDirectionStable, 0.0
 	}
 
 	// Simple linear regression to detect trend
@@ -417,24 +431,25 @@ func (w *WorkloadClassifier) analyzeTrend(values []float64) (direction string, s
 	// Normalize slope by mean to get relative trend strength
 	mean := sumY / n
 	if mean == 0 {
-		return "stable", 0.0
+		return TrendDirectionStable, 0.0
 	}
 
 	relativeSlope := math.Abs(slope) / mean
 
 	// Determine direction and strength
 	if math.Abs(slope) < mean*0.001 { // Very small trend
-		return "stable", 0.0
+		return TrendDirectionStable, 0.0
 	}
 
+	var direction string
 	if slope > 0 {
-		direction = "increasing"
+		direction = TrendDirectionIncreasing
 	} else {
-		direction = "decreasing"
+		direction = TrendDirectionDecreasing
 	}
 
 	// Cap strength at 1.0
-	strength = math.Min(relativeSlope*100, 1.0)
+	strength := math.Min(relativeSlope*100, 1.0)
 
 	return direction, strength
 }

@@ -7,6 +7,15 @@ import (
 	"time"
 )
 
+const (
+	defaultBaseCPU      = 0.05     // 50m cores
+	defaultBaseMemory   = 67108864 // 64Mi bytes
+	defaultVariance     = 0.3      // 30% variance
+	varianceOffset      = 0.5
+	varianceMultiplier  = 2
+	minDataPointsForClassification = 20
+)
+
 // MockMetricsClient provides fake metrics for testing
 type MockMetricsClient struct {
 	// Configuration for generating fake data
@@ -18,15 +27,15 @@ type MockMetricsClient struct {
 // NewMockMetricsClient creates a mock metrics client for testing
 func NewMockMetricsClient() *MockMetricsClient {
 	return &MockMetricsClient{
-		BaseCPU:    0.05,     // 50m cores
-		BaseMemory: 67108864, // 64Mi bytes
-		Variance:   0.3,      // 30% variance
+		BaseCPU:    defaultBaseCPU,
+		BaseMemory: defaultBaseMemory,
+		Variance:   defaultVariance,
 	}
 }
 
 // GetPodMetrics generates fake pod metrics for testing
 func (m *MockMetricsClient) GetPodMetrics(
-	ctx context.Context,
+	_ context.Context,
 	namespace, podName string,
 	window time.Duration,
 ) (*PodMetrics, error) {
@@ -47,14 +56,14 @@ func (m *MockMetricsClient) GetPodMetrics(
 		timestamp := start.Add(time.Duration(i) * interval)
 
 		// Generate CPU usage with some variance
-		cpuVariance := (rand.Float64() - 0.5) * 2 * m.Variance
+		cpuVariance := (rand.Float64() - varianceOffset) * varianceMultiplier * m.Variance
 		cpuValue := m.BaseCPU * (1 + cpuVariance)
 		if cpuValue < 0 {
 			cpuValue = 0.001
 		}
 
 		// Generate memory usage with some variance
-		memVariance := (rand.Float64() - 0.5) * 2 * m.Variance
+		memVariance := (rand.Float64() - varianceOffset) * varianceMultiplier * m.Variance
 		memValue := m.BaseMemory * (1 + memVariance)
 		if memValue < 0 {
 			memValue = 1024

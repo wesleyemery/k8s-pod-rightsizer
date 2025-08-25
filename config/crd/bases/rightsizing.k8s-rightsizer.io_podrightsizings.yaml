@@ -53,7 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: PodRightSizingSpec defines the desired state of PodRightSizing
+            description: PodRightSizingSpec defines the desired state of PodRightSizing.
             properties:
               analysisWindow:
                 default: 7d

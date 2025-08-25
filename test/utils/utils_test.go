@@ -110,7 +110,7 @@ func TestUncommentCode_TargetNotFound(t *testing.T) {
 line2
 line3`
 
-	err := os.WriteFile(tmpFile, []byte(content), 0644)
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
 	assert.NoError(t, err)
 	defer os.Remove(tmpFile)
 
@@ -129,7 +129,7 @@ func TestUncommentCode_Success(t *testing.T) {
 //commented line 2
 line2`
 
-	err := os.WriteFile(tmpFile, []byte(content), 0644)
+	err := os.WriteFile(tmpFile, []byte(content), 0600)
 	assert.NoError(t, err)
 	defer os.Remove(tmpFile)
 
@@ -194,14 +194,14 @@ func TestConstants(t *testing.T) {
 func TestStringReplacement(t *testing.T) {
 	// Test the string replacement logic used in GetProjectDir
 	testPath := "/some/path/test/e2e/folder"
-	result := strings.Replace(testPath, "/test/e2e", "", -1)
+	result := strings.ReplaceAll(testPath, "/test/e2e", "")
 	expected := "/some/path/folder"
 
 	assert.Equal(t, expected, result)
 
 	// Test when the replacement string is not present
 	testPath2 := "/some/other/path"
-	result2 := strings.Replace(testPath2, "/test/e2e", "", -1)
+	result2 := strings.ReplaceAll(testPath2, "/test/e2e", "")
 	assert.Equal(t, testPath2, result2) // Should remain unchanged
 }
 

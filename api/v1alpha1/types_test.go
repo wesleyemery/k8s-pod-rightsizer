@@ -47,9 +47,9 @@ func TestPodRightSizing_Creation(t *testing.T) {
 
 func TestPodRightSizingStatus_Basic(t *testing.T) {
 	status := &PodRightSizingStatus{
-		Phase:            PhaseAnalyzing,
-		TargetedPods:     int32(10),
-		Recommendations:  []PodRecommendation{},
+		Phase:           PhaseAnalyzing,
+		TargetedPods:    int32(10),
+		Recommendations: []PodRecommendation{},
 	}
 
 	assert.Equal(t, PhaseAnalyzing, status.Phase)
@@ -129,14 +129,14 @@ func TestRightSizingPhases(t *testing.T) {
 	expectedPhases := []string{
 		"Initializing",
 		"Analyzing",
-		"Recommending", 
+		"Recommending",
 		"Updating",
 		"Completed",
 		"Error",
 	}
 
 	assert.Len(t, phases, len(expectedPhases))
-	
+
 	for i, phase := range phases {
 		assert.Equal(t, expectedPhases[i], string(phase))
 	}

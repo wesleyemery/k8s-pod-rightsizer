@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// PodRightSizingSpec defines the desired state of PodRightSizing
+// PodRightSizingSpec defines the desired state of PodRightSizing.
 type PodRightSizingSpec struct {
 	// Target defines which pods to analyze and optimize
 	Target TargetSpec `json:"target"`

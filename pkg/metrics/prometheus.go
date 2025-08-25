@@ -11,6 +11,12 @@ import (
 	"github.com/prometheus/common/model"
 )
 
+const (
+	httpTimeoutSeconds = 30
+	mockCPUValue      = 0.05     // 50m cores
+	mockMemoryValue   = 67108864 // 64Mi bytes
+)
+
 // PrometheusClient implements MetricsClient interface for Prometheus
 type PrometheusClient struct {
 	client   api.Client
@@ -234,23 +240,23 @@ func (p *PrometheusClient) convertSamplePairToUsageHistory(values []model.Sample
 	return history
 }
 
-// MetricsServerClient for fallback functionality
-type MetricsServerClient struct {
+// ServerClient for fallback functionality.
+type ServerClient struct {
 	httpClient *http.Client
 	baseURL    string
 }
 
-// NewMetricsServerClient creates a new Metrics Server client
-func NewMetricsServerClient(baseURL string) *MetricsServerClient {
-	return &MetricsServerClient{
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+// NewMetricsServerClient creates a new Metrics Server client.
+func NewMetricsServerClient(baseURL string) *ServerClient {
+	return &ServerClient{
+		httpClient: &http.Client{Timeout: httpTimeoutSeconds * time.Second},
 		baseURL:    baseURL,
 	}
 }
 
 // GetPodMetrics retrieves current metrics from Metrics Server
-func (m *MetricsServerClient) GetPodMetrics(
-	ctx context.Context,
+func (m *ServerClient) GetPodMetrics(
+	_ context.Context,
 	namespace, podName string,
 	window time.Duration,
 ) (*PodMetrics, error) {
@@ -260,10 +266,10 @@ func (m *MetricsServerClient) GetPodMetrics(
 		PodName:   podName,
 		Namespace: namespace,
 		CPUUsageHistory: []ResourceUsage{
-			{Timestamp: time.Now(), Value: 0.05, Unit: "cores"}, // 50m CPU
+			{Timestamp: time.Now(), Value: mockCPUValue, Unit: "cores"},
 		},
 		MemUsageHistory: []ResourceUsage{
-			{Timestamp: time.Now(), Value: 67108864, Unit: "bytes"}, // 64Mi memory
+			{Timestamp: time.Now(), Value: mockMemoryValue, Unit: "bytes"},
 		},
 		StartTime: time.Now().Add(-window),
 		EndTime:   time.Now(),
@@ -271,8 +277,8 @@ func (m *MetricsServerClient) GetPodMetrics(
 }
 
 // GetWorkloadMetrics retrieves current metrics for a workload from Metrics Server
-func (m *MetricsServerClient) GetWorkloadMetrics(
-	ctx context.Context,
+func (m *ServerClient) GetWorkloadMetrics(
+	_ context.Context,
 	namespace, workloadName, workloadType string,
 	window time.Duration,
 ) (*WorkloadMetrics, error) {
@@ -286,10 +292,10 @@ func (m *MetricsServerClient) GetWorkloadMetrics(
 				PodName:   workloadName + "-sample-pod",
 				Namespace: namespace,
 				CPUUsageHistory: []ResourceUsage{
-					{Timestamp: time.Now(), Value: 0.05, Unit: "cores"},
+					{Timestamp: time.Now(), Value: mockCPUValue, Unit: "cores"},
 				},
 				MemUsageHistory: []ResourceUsage{
-					{Timestamp: time.Now(), Value: 67108864, Unit: "bytes"},
+					{Timestamp: time.Now(), Value: mockMemoryValue, Unit: "bytes"},
 				},
 			},
 		},
