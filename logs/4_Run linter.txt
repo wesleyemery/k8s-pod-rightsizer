@@ -1,0 +1,977 @@
+﻿2025-08-24T23:28:58.3659631Z ##[group]Run golangci/golangci-lint-action@v6
+2025-08-24T23:28:58.3660110Z with:
+2025-08-24T23:28:58.3660400Z   version: v1.63.4
+2025-08-24T23:28:58.3660716Z   install-mode: binary
+2025-08-24T23:28:58.3661234Z   github-token: ***
+2025-08-24T23:28:58.3661548Z   verify: true
+2025-08-24T23:28:58.3661869Z   only-new-issues: false
+2025-08-24T23:28:58.3662214Z   skip-cache: false
+2025-08-24T23:28:58.3662525Z   skip-save-cache: false
+2025-08-24T23:28:58.3662872Z   problem-matchers: false
+2025-08-24T23:28:58.3663239Z   cache-invalidation-interval: 7
+2025-08-24T23:28:58.3663615Z ##[endgroup]
+2025-08-24T23:28:58.5742087Z ##[group]prepare environment
+2025-08-24T23:28:58.5745427Z Checking for go.mod: go.mod
+2025-08-24T23:28:58.7574643Z Cache hit for: golangci-lint.cache-Linux-2903-ba61d38549400419999bf8db67734a41a8a99e65
+2025-08-24T23:28:59.8554128Z Received 3588301 of 3588301 (100.0%), 4.1 MBs/sec
+2025-08-24T23:28:59.8555108Z Cache Size: ~3 MB (3588301 B)
+2025-08-24T23:28:59.8600120Z [command]/usr/bin/tar -xf /home/runner/work/_temp/b4c47e94-2ae2-4515-ab5f-9e31eb6294a3/cache.tzst -P -C /home/runner/work/k8s-pod-rightsizer/k8s-pod-rightsizer --use-compress-program unzstd
+2025-08-24T23:29:00.9790558Z Cache restored successfully
+2025-08-24T23:29:00.9839099Z Restored cache for golangci-lint from key 'golangci-lint.cache-Linux-2903-ba61d38549400419999bf8db67734a41a8a99e65' in 2410ms
+2025-08-24T23:29:00.9851110Z Finding needed golangci-lint version...
+2025-08-24T23:29:00.9851910Z Installation mode: binary
+2025-08-24T23:29:00.9852354Z Installing golangci-lint binary v1.63.4...
+2025-08-24T23:29:00.9853457Z Downloading binary https://github.com/golangci/golangci-lint/releases/download/v1.63.4/golangci-lint-1.63.4-linux-amd64.tar.gz ...
+2025-08-24T23:29:01.2610880Z [command]/usr/bin/tar xz --overwrite --warning=no-unknown-keyword --overwrite -C /home/runner -f /home/runner/work/_temp/81ed71de-0ed2-4156-abdf-32c2a84c1a58
+2025-08-24T23:29:01.5214450Z Installed golangci-lint into /home/runner/golangci-lint-1.63.4-linux-amd64/golangci-lint in 537ms
+2025-08-24T23:29:01.5218746Z Prepared env in 2948ms
+2025-08-24T23:29:01.5222738Z ##[endgroup]
+2025-08-24T23:29:01.5235394Z ##[group]run golangci-lint
+2025-08-24T23:29:01.5238397Z Running [/home/runner/golangci-lint-1.63.4-linux-amd64/golangci-lint config path] in [/home/runner/work/k8s-pod-rightsizer/k8s-pod-rightsizer] ...
+2025-08-24T23:29:01.6326616Z Running [/home/runner/golangci-lint-1.63.4-linux-amd64/golangci-lint config verify] in [/home/runner/work/k8s-pod-rightsizer/k8s-pod-rightsizer] ...
+2025-08-24T23:29:01.8099060Z Running [/home/runner/golangci-lint-1.63.4-linux-amd64/golangci-lint run] in [/home/runner/work/k8s-pod-rightsizer/k8s-pod-rightsizer] ...
+2025-08-24T23:30:17.0301684Z internal/controller/podrightsizing_controller.go:634: 634-667 lines are duplicate of `internal/controller/podrightsizing_controller.go:670-703` (dupl)
+2025-08-24T23:30:17.0306016Z func (r *PodRightSizingReconciler) updateStatefulSet(ctx context.Context, namespace, name string, resources corev1.ResourceRequirements) (int, error) {
+2025-08-24T23:30:17.0308513Z 	logger := log.FromContext(ctx)
+2025-08-24T23:30:17.0308824Z 
+2025-08-24T23:30:17.0309045Z 	var statefulSet appsv1.StatefulSet
+2025-08-24T23:30:17.0309947Z 	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &statefulSet); err != nil {
+2025-08-24T23:30:17.0311097Z 		return 0, fmt.Errorf("failed to get statefulset %s/%s: %w", namespace, name, err)
+2025-08-24T23:30:17.0311788Z 	}
+2025-08-24T23:30:17.0311976Z 
+2025-08-24T23:30:17.0312147Z 	// Update container resources
+2025-08-24T23:30:17.0312526Z 	updated := false
+2025-08-24T23:30:17.0313364Z 	for i := range statefulSet.Spec.Template.Spec.Containers {
+2025-08-24T23:30:17.0314299Z 		container := &statefulSet.Spec.Template.Spec.Containers[i]
+2025-08-24T23:30:17.0314999Z 		if !r.resourcesEqual(container.Resources, resources) {
+2025-08-24T23:30:17.0315604Z 			logger.Info("Updating container resources",
+2025-08-24T23:30:17.0316085Z 				"statefulset", name,
+2025-08-24T23:30:17.0316502Z 				"container", container.Name)
+2025-08-24T23:30:17.0317008Z 
+2025-08-24T23:30:17.0317212Z 			container.Resources = resources
+2025-08-24T23:30:17.0317626Z 			updated = true
+2025-08-24T23:30:17.0317911Z 		}
+2025-08-24T23:30:17.0318160Z 	}
+2025-08-24T23:30:17.0318302Z 
+2025-08-24T23:30:17.0318439Z 	if !updated {
+2025-08-24T23:30:17.0318739Z 		return 0, nil
+2025-08-24T23:30:17.0319021Z 	}
+2025-08-24T23:30:17.0319160Z 
+2025-08-24T23:30:17.0319313Z 	// Update the statefulset
+2025-08-24T23:30:17.0319762Z 	if err := r.Update(ctx, &statefulSet); err != nil {
+2025-08-24T23:30:17.0320519Z 		return 0, fmt.Errorf("failed to update statefulset %s/%s: %w", namespace, name, err)
+2025-08-24T23:30:17.0321124Z 	}
+2025-08-24T23:30:17.0321276Z 
+2025-08-24T23:30:17.0321619Z 	logger.Info("Successfully updated statefulset", "statefulset", name)
+2025-08-24T23:30:17.0322182Z 	return 1, nil
+2025-08-24T23:30:17.0322461Z }
+2025-08-24T23:30:17.0323464Z internal/controller/podrightsizing_controller.go:670: 670-703 lines are duplicate of `internal/controller/podrightsizing_controller.go:634-667` (dupl)
+2025-08-24T23:30:17.0325520Z func (r *PodRightSizingReconciler) updateDaemonSet(ctx context.Context, namespace, name string, resources corev1.ResourceRequirements) (int, error) {
+2025-08-24T23:30:17.0326590Z 	logger := log.FromContext(ctx)
+2025-08-24T23:30:17.0326837Z 
+2025-08-24T23:30:17.0327007Z 	var daemonSet appsv1.DaemonSet
+2025-08-24T23:30:17.0327706Z 	if err := r.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, &daemonSet); err != nil {
+2025-08-24T23:30:17.0328287Z 		return 0, fmt.Errorf("failed to get daemonset %s/%s: %w", namespace, name, err)
+2025-08-24T23:30:17.0328628Z 	}
+2025-08-24T23:30:17.0328716Z 
+2025-08-24T23:30:17.0328812Z 	// Update container resources
+2025-08-24T23:30:17.0329034Z 	updated := false
+2025-08-24T23:30:17.0329306Z 	for i := range daemonSet.Spec.Template.Spec.Containers {
+2025-08-24T23:30:17.0329711Z 		container := &daemonSet.Spec.Template.Spec.Containers[i]
+2025-08-24T23:30:17.0330093Z 		if !r.resourcesEqual(container.Resources, resources) {
+2025-08-24T23:30:17.0330436Z 			logger.Info("Updating container resources",
+2025-08-24T23:30:17.0330716Z 				"daemonset", name,
+2025-08-24T23:30:17.0331475Z 				"container", container.Name)
+2025-08-24T23:30:17.0331763Z 
+2025-08-24T23:30:17.0331974Z 			container.Resources = resources
+2025-08-24T23:30:17.0332264Z 			updated = true
+2025-08-24T23:30:17.0332441Z 		}
+2025-08-24T23:30:17.0332587Z 	}
+2025-08-24T23:30:17.0332675Z 
+2025-08-24T23:30:17.0332751Z 	if !updated {
+2025-08-24T23:30:17.0332934Z 		return 0, nil
+2025-08-24T23:30:17.0333103Z 	}
+2025-08-24T23:30:17.0333185Z 
+2025-08-24T23:30:17.0333279Z 	// Update the daemonset
+2025-08-24T23:30:17.0333533Z 	if err := r.Update(ctx, &daemonSet); err != nil {
+2025-08-24T23:30:17.0334214Z 		return 0, fmt.Errorf("failed to update daemonset %s/%s: %w", namespace, name, err)
+2025-08-24T23:30:17.0334565Z 	}
+2025-08-24T23:30:17.0334654Z 
+2025-08-24T23:30:17.0334838Z 	logger.Info("Successfully updated daemonset", "daemonset", name)
+2025-08-24T23:30:17.0335161Z 	return 1, nil
+2025-08-24T23:30:17.0335322Z }
+2025-08-24T23:30:17.0368272Z ##[error]pkg/metrics/prometheus.go:90:1: cognitive complexity 21 of func `(*PrometheusClient).GetWorkloadMetrics` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0377819Z func (p *PrometheusClient) GetWorkloadMetrics(
+2025-08-24T23:30:17.0378120Z ^
+2025-08-24T23:30:17.0379563Z ##[error]pkg/analyzer/workload_classifier.go:164:1: cognitive complexity 16 of func `(*WorkloadClassifier).determineWorkloadClass` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0380894Z func (w *WorkloadClassifier) determineWorkloadClass(cpuPattern, memPattern ResourcePattern) WorkloadClass {
+2025-08-24T23:30:17.0381556Z ^
+2025-08-24T23:30:17.0382238Z ##[error]test/demo.go:16:1: cognitive complexity 17 of func `main` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0383016Z func main() {
+2025-08-24T23:30:17.0383222Z ^
+2025-08-24T23:30:17.0384499Z ##[error]test/integration/integration_test.go:245:1: cognitive complexity 16 of func `TestResourceThresholdValidation` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0385797Z func TestResourceThresholdValidation(t *testing.T) {
+2025-08-24T23:30:17.0386084Z ^
+2025-08-24T23:30:17.0387295Z ##[error]internal/controller/podrightsizing_controller.go:450:1: cognitive complexity 25 of func `(*PodRightSizingReconciler).getCurrentResources` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0388604Z func (r *PodRightSizingReconciler) getCurrentResources(pod *corev1.Pod) corev1.ResourceRequirements {
+2025-08-24T23:30:17.0389049Z ^
+2025-08-24T23:30:17.0390078Z ##[error]internal/controller/podrightsizing_controller.go:922:1: cognitive complexity 25 of func `(*PodRightSizingReconciler).workloadMatchesTarget` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0391442Z func (r *PodRightSizingReconciler) workloadMatchesTarget(obj client.Object, prs *rightsizingv1alpha1.PodRightSizing) bool {
+2025-08-24T23:30:17.0391959Z ^
+2025-08-24T23:30:17.0392941Z ##[error]internal/controller/podrightsizing_controller.go:211:1: cognitive complexity 24 of func `(*PodRightSizingReconciler).discoverTargetPods` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0394567Z func (r *PodRightSizingReconciler) discoverTargetPods(ctx context.Context, prs *rightsizingv1alpha1.PodRightSizing) ([]corev1.Pod, error) {
+2025-08-24T23:30:17.0395125Z ^
+2025-08-24T23:30:17.0396092Z ##[error]internal/controller/podrightsizing_controller.go:864:1: cognitive complexity 23 of func `(*PodRightSizingReconciler).podMatchesTarget` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0397396Z func (r *PodRightSizingReconciler) podMatchesTarget(pod *corev1.Pod, prs *rightsizingv1alpha1.PodRightSizing) bool {
+2025-08-24T23:30:17.0397883Z ^
+2025-08-24T23:30:17.0398777Z ##[error]internal/controller/podrightsizing_controller.go:68:1: cognitive complexity 20 of func `(*PodRightSizingReconciler).Reconcile` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0400010Z func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+2025-08-24T23:30:17.0400444Z ^
+2025-08-24T23:30:17.0401421Z ##[error]internal/controller/podrightsizing_controller.go:363:1: cognitive complexity 16 of func `(*PodRightSizingReconciler).getWorkloadName` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0402704Z func (r *PodRightSizingReconciler) getWorkloadName(ctx context.Context, pod *corev1.Pod) string {
+2025-08-24T23:30:17.0403130Z ^
+2025-08-24T23:30:17.0403899Z ##[error]cmd/main.go:59:1: cognitive complexity 23 of func `main` is high (> 15) (gocognit)
+2025-08-24T23:30:17.0404739Z func main() {
+2025-08-24T23:30:17.0404922Z ^
+2025-08-24T23:30:17.0405630Z ##[error]pkg/analyzer/workload_classifier.go:396:10: string `stable` has 3 occurrences, make it a constant (goconst)
+2025-08-24T23:30:17.0406576Z 		return "stable", 0.0
+2025-08-24T23:30:17.0406801Z 		       ^
+2025-08-24T23:30:17.0407479Z ##[error]pkg/analyzer/workload_classifier.go:167:35: string `increasing` has 3 occurrences, make it a constant (goconst)
+2025-08-24T23:30:17.0408561Z 		if cpuPattern.TrendDirection == "increasing" || memPattern.TrendDirection == "increasing" {
+2025-08-24T23:30:17.0409097Z 		                                ^
+2025-08-24T23:30:17.0409797Z ##[error]pkg/analyzer/workload_classifier.go:170:35: string `decreasing` has 3 occurrences, make it a constant (goconst)
+2025-08-24T23:30:17.0410876Z 		if cpuPattern.TrendDirection == "decreasing" || memPattern.TrendDirection == "decreasing" {
+2025-08-24T23:30:17.0411404Z 		                                ^
+2025-08-24T23:30:17.0412119Z ##[error]test/utils/utils_test.go:113:9: G306: Expect WriteFile permissions to be 0600 or less (gosec)
+2025-08-24T23:30:17.0413208Z 	err := os.WriteFile(tmpFile, []byte(content), 0644)
+2025-08-24T23:30:17.0413491Z 	       ^
+2025-08-24T23:30:17.0414364Z ##[error]test/utils/utils_test.go:132:9: G306: Expect WriteFile permissions to be 0600 or less (gosec)
+2025-08-24T23:30:17.0415277Z 	err := os.WriteFile(tmpFile, []byte(content), 0644)
+2025-08-24T23:30:17.0415552Z 	       ^
+2025-08-24T23:30:17.0416381Z ##[error]test/e2e/e2e_suite_test.go:57:9: G204: Subprocess launched with a potential tainted input or cmd arguments (gosec)
+2025-08-24T23:30:17.0417587Z 	cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", projectImage))
+2025-08-24T23:30:17.0417946Z 	       ^
+2025-08-24T23:30:17.0418646Z ##[error]test/e2e/e2e_test.go:69:9: G204: Subprocess launched with a potential tainted input or cmd arguments (gosec)
+2025-08-24T23:30:17.0419678Z 		cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", projectImage))
+2025-08-24T23:30:17.0420014Z 		      ^
+2025-08-24T23:30:17.0420680Z ##[error]test/e2e/e2e_test.go:175:11: G204: Subprocess launched with a potential tainted input or cmd arguments (gosec)
+2025-08-24T23:30:17.0421725Z 			cmd := exec.Command("kubectl", "create", "clusterrolebinding", metricsRoleBindingName,
+2025-08-24T23:30:17.0422206Z 				"--clusterrole=pod-rightsizer-metrics-reader",
+2025-08-24T23:30:17.0422651Z 				fmt.Sprintf("--serviceaccount=%s:%s", namespace, serviceAccountName),
+2025-08-24T23:30:17.0422974Z 			)
+2025-08-24T23:30:17.0423650Z ##[error]test/e2e/e2e_test.go:212:10: G204: Subprocess launched with a potential tainted input or cmd arguments (gosec)
+2025-08-24T23:30:17.0425222Z 			cmd = exec.Command("kubectl", "run", "curl-metrics", "--restart=Never",
+2025-08-24T23:30:17.0425596Z 				"--namespace", namespace,
+2025-08-24T23:30:17.0425875Z 				"--image=curlimages/curl:latest",
+2025-08-24T23:30:17.0426135Z 				"--overrides",
+2025-08-24T23:30:17.0426334Z 				fmt.Sprintf(`{
+2025-08-24T23:30:17.0426532Z 					"spec": {
+2025-08-24T23:30:17.0426737Z 						"containers": [{
+2025-08-24T23:30:17.0426962Z 							"name": "curl",
+2025-08-24T23:30:17.0427228Z 							"image": "curlimages/curl:latest",
+2025-08-24T23:30:17.0427536Z 							"command": ["/bin/sh", "-c"],
+2025-08-24T23:30:17.0428379Z 							"args": ["curl -v -k -H 'Authorization: ***' https://%s.%s.svc.cluster.local:8443/metrics"],
+2025-08-24T23:30:17.0428830Z 							"securityContext": {
+2025-08-24T23:30:17.0429151Z 								"allowPrivilegeEscalation": false,
+2025-08-24T23:30:17.0429458Z 								"capabilities": {
+2025-08-24T23:30:17.0429711Z 									"drop": ["ALL"]
+2025-08-24T23:30:17.0429925Z 								},
+2025-08-24T23:30:17.0430155Z 								"runAsNonRoot": true,
+2025-08-24T23:30:17.0430410Z 								"runAsUser": 1000,
+2025-08-24T23:30:17.0430668Z 								"seccompProfile": {
+2025-08-24T23:30:17.0430949Z 									"type": "RuntimeDefault"
+2025-08-24T23:30:17.0431181Z 								}
+2025-08-24T23:30:17.0431357Z 							}
+2025-08-24T23:30:17.0431523Z 						}],
+2025-08-24T23:30:17.0431746Z 						"serviceAccount": "%s"
+2025-08-24T23:30:17.0431965Z 					}
+2025-08-24T23:30:17.0432283Z 				}`, token, metricsServiceName, namespace, serviceAccountName))
+2025-08-24T23:30:17.0433216Z ##[error]test/e2e/e2e_test.go:292:10: G204: Subprocess launched with a potential tainted input or cmd arguments (gosec)
+2025-08-24T23:30:17.0434508Z 		cmd := exec.Command("kubectl", "create", "--raw", fmt.Sprintf(
+2025-08-24T23:30:17.0434905Z 			"/api/v1/namespaces/%s/serviceaccounts/%s/token",
+2025-08-24T23:30:17.0435196Z 			namespace,
+2025-08-24T23:30:17.0435407Z 			serviceAccountName,
+2025-08-24T23:30:17.0435636Z 		), "-f", tokenRequestFile)
+2025-08-24T23:30:17.0436382Z ##[error]internal/controller/podrightsizing_controller.go:105:44: G115: integer overflow conversion int -> int32 (gosec)
+2025-08-24T23:30:17.0437396Z 	podRightSizing.Status.TargetedPods = int32(len(targetPods))
+2025-08-24T23:30:17.0437927Z 	                                          ^
+2025-08-24T23:30:17.0438624Z ##[error]internal/controller/podrightsizing_controller.go:150:44: G115: integer overflow conversion int -> int32 (gosec)
+2025-08-24T23:30:17.0439808Z 		podRightSizing.Status.UpdatedPods = int32(updatedCount)
+2025-08-24T23:30:17.0440329Z 		                                         ^
+2025-08-24T23:30:17.0441245Z ##[error]pkg/metrics/prometheus.go:253:2: unused-parameter: parameter 'ctx' seems to be unused, consider removing or renaming it as _ (revive)
+2025-08-24T23:30:17.0442185Z 	ctx context.Context,
+2025-08-24T23:30:17.0442376Z 	^
+2025-08-24T23:30:17.0443347Z ##[error]pkg/metrics/prometheus.go:275:2: unused-parameter: parameter 'ctx' seems to be unused, consider removing or renaming it as _ (revive)
+2025-08-24T23:30:17.0444623Z 	ctx context.Context,
+2025-08-24T23:30:17.0444822Z 	^
+2025-08-24T23:30:17.0445663Z ##[error]pkg/metrics/mock.go:29:2: unused-parameter: parameter 'ctx' seems to be unused, consider removing or renaming it as _ (revive)
+2025-08-24T23:30:17.0446571Z 	ctx context.Context,
+2025-08-24T23:30:17.0446765Z 	^
+2025-08-24T23:30:17.0447884Z ##[error]pkg/metrics/prometheus.go:238:6: exported: type name will be used as metrics.MetricsServerClient by other packages, and that stutters; consider calling this ServerClient (revive)
+2025-08-24T23:30:17.0448986Z type MetricsServerClient struct {
+2025-08-24T23:30:17.0449228Z      ^
+2025-08-24T23:30:17.0450112Z ##[error]pkg/analyzer/recommendation_engine.go:41:2: unused-parameter: parameter 'ctx' seems to be unused, consider removing or renaming it as _ (revive)
+2025-08-24T23:30:17.0451089Z 	ctx context.Context,
+2025-08-24T23:30:17.0451279Z 	^
+2025-08-24T23:30:17.0451990Z ##[error]pkg/analyzer/workload_classifier.go:342:2: redefines-builtin-id: redefinition of the built-in function min (revive)
+2025-08-24T23:30:17.0452901Z 	min := values[0]
+2025-08-24T23:30:17.0453082Z 	^
+2025-08-24T23:30:17.0454055Z ##[error]pkg/analyzer/workload_classifier.go:345:4: redefines-builtin-id: redefinition of the built-in function min (revive)
+2025-08-24T23:30:17.0455058Z 			min = v
+2025-08-24T23:30:17.0455223Z 			^
+2025-08-24T23:30:17.0455972Z ##[error]pkg/analyzer/workload_classifier.go:355:2: redefines-builtin-id: redefinition of the built-in function max (revive)
+2025-08-24T23:30:17.0456877Z 	max := values[0]
+2025-08-24T23:30:17.0457060Z 	^
+2025-08-24T23:30:17.0457750Z ##[error]pkg/analyzer/workload_classifier.go:358:4: redefines-builtin-id: redefinition of the built-in function max (revive)
+2025-08-24T23:30:17.0458620Z 			max = v
+2025-08-24T23:30:17.0458785Z 			^
+2025-08-24T23:30:17.0459257Z ##[error]test/e2e/e2e_test.go:27:2: dot-imports: should not use dot imports (revive)
+2025-08-24T23:30:17.0460026Z 	. "github.com/onsi/ginkgo/v2"
+2025-08-24T23:30:17.0460236Z 	^
+2025-08-24T23:30:17.0460706Z ##[error]test/e2e/e2e_test.go:28:2: dot-imports: should not use dot imports (revive)
+2025-08-24T23:30:17.0461453Z 	. "github.com/onsi/gomega"
+2025-08-24T23:30:17.0461669Z 	^
+2025-08-24T23:30:17.0462143Z ##[error]test/e2e/e2e_suite_test.go:25:2: dot-imports: should not use dot imports (revive)
+2025-08-24T23:30:17.0462903Z 	. "github.com/onsi/ginkgo/v2"
+2025-08-24T23:30:17.0463109Z 	^
+2025-08-24T23:30:17.0463584Z ##[error]test/e2e/e2e_suite_test.go:26:2: dot-imports: should not use dot imports (revive)
+2025-08-24T23:30:17.0464649Z 	. "github.com/onsi/gomega"
+2025-08-24T23:30:17.0464857Z 	^
+2025-08-24T23:30:17.0465778Z ##[error]internal/controller/podrightsizing_controller.go:764:22: unused-parameter: parameter 'e' seems to be unused, consider removing or renaming it as _ (revive)
+2025-08-24T23:30:17.0466859Z 				CreateFunc: func(e event.CreateEvent) bool {
+2025-08-24T23:30:17.0467192Z 				                 ^
+2025-08-24T23:30:17.0468107Z ##[error]internal/controller/podrightsizing_controller.go:768:22: unused-parameter: parameter 'e' seems to be unused, consider removing or renaming it as _ (revive)
+2025-08-24T23:30:17.0469209Z 				DeleteFunc: func(e event.DeleteEvent) bool {
+2025-08-24T23:30:17.0469527Z 				                 ^
+2025-08-24T23:30:17.0470161Z ##[error]internal/controller/podrightsizing_controller_test.go:22:2: dot-imports: should not use dot imports (revive)
+2025-08-24T23:30:17.0471052Z 	. "github.com/onsi/ginkgo/v2"
+2025-08-24T23:30:17.0471435Z 	^
+2025-08-24T23:30:17.0471984Z ##[error]internal/controller/suite_test.go:25:2: dot-imports: should not use dot imports (revive)
+2025-08-24T23:30:17.0472806Z 	. "github.com/onsi/ginkgo/v2"
+2025-08-24T23:30:17.0473024Z 	^
+2025-08-24T23:30:17.0473623Z ##[error]internal/controller/podrightsizing_controller_test.go:23:2: dot-imports: should not use dot imports (revive)
+2025-08-24T23:30:17.0474653Z 	. "github.com/onsi/gomega"
+2025-08-24T23:30:17.0475003Z 	^
+2025-08-24T23:30:17.0475557Z ##[error]internal/controller/suite_test.go:26:2: dot-imports: should not use dot imports (revive)
+2025-08-24T23:30:17.0476376Z 	. "github.com/onsi/gomega"
+2025-08-24T23:30:17.0476580Z 	^
+2025-08-24T23:30:17.0477392Z ##[error]internal/controller/podrightsizing_controller.go:116:41: Function `groupPodsByWorkload` should pass the context parameter (contextcheck)
+2025-08-24T23:30:17.0478434Z 	workloadGroups := r.groupPodsByWorkload(targetPods)
+2025-08-24T23:30:17.0478900Z 	                                       ^
+2025-08-24T23:30:17.0479759Z ##[error]internal/controller/podrightsizing_controller.go:827:24: Function `podMatchesTarget` should pass the context parameter (contextcheck)
+2025-08-24T23:30:17.0480755Z 		if r.podMatchesTarget(pod, &prs) {
+2025-08-24T23:30:17.0481066Z 		                     ^
+2025-08-24T23:30:17.0481911Z ##[error]internal/controller/podrightsizing_controller.go:850:29: Function `workloadMatchesTarget` should pass the context parameter (contextcheck)
+2025-08-24T23:30:17.0482949Z 		if r.workloadMatchesTarget(obj, &prs) {
+2025-08-24T23:30:17.0483290Z 		                          ^
+2025-08-24T23:30:17.0484213Z ##[error]test/utils/utils.go:57:79: non-wrapping format verb for fmt.Errorf. Use `%w` to format errors (errorlint)
+2025-08-24T23:30:17.0485478Z 		return string(output), fmt.Errorf("%s failed with error: (%v) %s", command, err, string(output))
+2025-08-24T23:30:17.0487042Z 		                                                                            ^
+2025-08-24T23:30:17.0488324Z ##[error]test/integration/integration_test.go:19:6: Function 'TestCompleteWorkflowIntegration' is too long (123 > 100) (funlen)
+2025-08-24T23:30:17.0489881Z func TestCompleteWorkflowIntegration(t *testing.T) {
+2025-08-24T23:30:17.0490194Z      ^
+2025-08-24T23:30:17.0490671Z ##[error]cmd/main.go:25:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0491332Z 
+2025-08-24T23:30:17.0491403Z ^
+2025-08-24T23:30:17.0491811Z ##[error]cmd/main.go:29:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0492444Z 
+2025-08-24T23:30:17.0492513Z ^
+2025-08-24T23:30:17.0492906Z ##[error]cmd/main.go:45:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0493607Z 	// +kubebuilder:scaffold:imports
+2025-08-24T23:30:17.0494073Z ^
+2025-08-24T23:30:17.0494730Z ##[error]api/v1alpha1/types_test.go:50:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0495554Z 		Phase:            PhaseAnalyzing,
+2025-08-24T23:30:17.0495784Z ^
+2025-08-24T23:30:17.0496233Z ##[error]api/v1alpha1/types_test.go:132:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0496989Z 		"Recommending", 
+2025-08-24T23:30:17.0497167Z ^
+2025-08-24T23:30:17.0497608Z ##[error]api/v1alpha1/types_test.go:139:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0498331Z 	
+2025-08-24T23:30:17.0498480Z ^
+2025-08-24T23:30:17.0498916Z ##[error]api/v1alpha1/types_test.go:195:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0499635Z }
+2025-08-24T23:30:17.0499791Z ^
+2025-08-24T23:30:17.0500328Z ##[error]internal/controller/podrightsizing_controller_test.go:24:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0501244Z 	"k8s.io/apimachinery/pkg/api/errors"
+2025-08-24T23:30:17.0501472Z ^
+2025-08-24T23:30:17.0502016Z ##[error]internal/controller/podrightsizing_controller_test.go:27:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0502776Z 
+2025-08-24T23:30:17.0502843Z ^
+2025-08-24T23:30:17.0503304Z ##[error]internal/controller/suite_test.go:27:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0504487Z 
+2025-08-24T23:30:17.0504561Z ^
+2025-08-24T23:30:17.0505089Z ##[error]internal/controller/suite_test.go:36:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0505884Z 	// +kubebuilder:scaffold:imports
+2025-08-24T23:30:17.0506100Z ^
+2025-08-24T23:30:17.0506561Z ##[error]pkg/analyzer/cost_calculator.go:5:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0507488Z 	rightsizingv1alpha1 "github.com/wesleyemery/k8s-pod-rightsizer/api/v1alpha1"
+2025-08-24T23:30:17.0508010Z ^
+2025-08-24T23:30:17.0508500Z ##[error]pkg/analyzer/cost_calculator.go:7:1: File is not properly formatted (gci)
+2025-08-24T23:30:17.0509313Z 	"k8s.io/apimachinery/pkg/api/resource"
+2025-08-24T23:30:17.0509549Z ^
+2025-08-24T23:30:17.0509977Z ##[error]cmd/main.go:53:1: don't use `init` function (gochecknoinits)
+2025-08-24T23:30:17.0510680Z func init() {
+2025-08-24T23:30:17.0510850Z ^
+2025-08-24T23:30:17.0511371Z ##[error]api/v1alpha1/podrightsizing_types.go:303:1: don't use `init` function (gochecknoinits)
+2025-08-24T23:30:17.0512167Z func init() {
+2025-08-24T23:30:17.0512337Z ^
+2025-08-24T23:30:17.0512997Z ##[error]internal/controller/podrightsizing_controller.go:227:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+2025-08-24T23:30:17.0514212Z 	if prs.Spec.Target.NamespaceSelector != nil {
+2025-08-24T23:30:17.0514488Z 	^
+2025-08-24T23:30:17.0515161Z ##[error]pkg/analyzer/recommendation_engine.go:341:2: ifElseChain: rewrite if-else to switch statement (gocritic)
+2025-08-24T23:30:17.0516047Z 	if cv > 0.5 {
+2025-08-24T23:30:17.0516220Z 	^
+2025-08-24T23:30:17.0517018Z ##[error]test/utils/utils.go:200:7: wrapperFunc: use strings.ReplaceAll method in `strings.Replace(wd, "/test/e2e", "", -1)` (gocritic)
+2025-08-24T23:30:17.0517964Z 	wd = strings.Replace(wd, "/test/e2e", "", -1)
+2025-08-24T23:30:17.0518225Z 	     ^
+2025-08-24T23:30:17.0519065Z ##[error]test/utils/utils_test.go:197:12: wrapperFunc: use strings.ReplaceAll method in `strings.Replace(testPath, "/test/e2e", "", -1)` (gocritic)
+2025-08-24T23:30:17.0520071Z 	result := strings.Replace(testPath, "/test/e2e", "", -1)
+2025-08-24T23:30:17.0520390Z 	          ^
+2025-08-24T23:30:17.0521235Z ##[error]test/utils/utils_test.go:204:13: wrapperFunc: use strings.ReplaceAll method in `strings.Replace(testPath2, "/test/e2e", "", -1)` (gocritic)
+2025-08-24T23:30:17.0522244Z 	result2 := strings.Replace(testPath2, "/test/e2e", "", -1)
+2025-08-24T23:30:17.0522552Z 	           ^
+2025-08-24T23:30:17.0523062Z ##[error]api/v1alpha1/podrightsizing_types.go:26:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0524252Z // PodRightSizingSpec defines the desired state of PodRightSizing
+2025-08-24T23:30:17.0524587Z ^
+2025-08-24T23:30:17.0525145Z ##[error]api/v1alpha1/podrightsizing_types.go:53:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0526031Z // TargetSpec defines which pods to target for right-sizing
+2025-08-24T23:30:17.0526324Z ^
+2025-08-24T23:30:17.0526810Z ##[error]api/v1alpha1/podrightsizing_types.go:71:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0527682Z // UpdatePolicy defines how resource updates should be applied
+2025-08-24T23:30:17.0527977Z ^
+2025-08-24T23:30:17.0528459Z ##[error]api/v1alpha1/podrightsizing_types.go:102:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0529292Z // ResourceThresholds defines optimization parameters
+2025-08-24T23:30:17.0529569Z ^
+2025-08-24T23:30:17.0530044Z ##[error]api/v1alpha1/podrightsizing_types.go:133:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0530903Z // MetricsSourceSpec defines where to collect metrics from
+2025-08-24T23:30:17.0531184Z ^
+2025-08-24T23:30:17.0531663Z ##[error]api/v1alpha1/podrightsizing_types.go:152:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0532507Z // PrometheusConfig defines Prometheus connection details
+2025-08-24T23:30:17.0532789Z ^
+2025-08-24T23:30:17.0533259Z ##[error]api/v1alpha1/podrightsizing_types.go:164:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0534360Z // AuthConfig defines authentication configuration
+2025-08-24T23:30:17.0534821Z ^
+2025-08-24T23:30:17.0535381Z ##[error]api/v1alpha1/podrightsizing_types.go:183:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0536321Z // PodRightSizingStatus defines the observed state of PodRightSizing
+2025-08-24T23:30:17.0536644Z ^
+2025-08-24T23:30:17.0537143Z ##[error]api/v1alpha1/podrightsizing_types.go:223:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0538055Z // PodRecommendation contains resource recommendations for a specific pod
+2025-08-24T23:30:17.0538528Z ^
+2025-08-24T23:30:17.0539036Z ##[error]api/v1alpha1/podrightsizing_types.go:250:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0539860Z // PodReference uniquely identifies a pod
+2025-08-24T23:30:17.0540102Z ^
+2025-08-24T23:30:17.0540596Z ##[error]api/v1alpha1/podrightsizing_types.go:265:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0541511Z // ResourceSavings estimates potential savings from applying recommendations
+2025-08-24T23:30:17.0541869Z ^
+2025-08-24T23:30:17.0542351Z ##[error]api/v1alpha1/podrightsizing_types.go:285:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0543198Z // PodRightSizing is the Schema for the podrightsizings API
+2025-08-24T23:30:17.0543492Z ^
+2025-08-24T23:30:17.0544111Z ##[error]api/v1alpha1/podrightsizing_types.go:296:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0544971Z // PodRightSizingList contains a list of PodRightSizing
+2025-08-24T23:30:17.0545255Z ^
+2025-08-24T23:30:17.0545814Z ##[error]internal/controller/podrightsizing_controller.go:52:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0546736Z // PodRightSizingReconciler reconciles a PodRightSizing object
+2025-08-24T23:30:17.0547046Z ^
+2025-08-24T23:30:17.0547576Z ##[error]internal/controller/podrightsizing_controller.go:67:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0548448Z // Reconcile handles PodRightSizing custom resources
+2025-08-24T23:30:17.0548711Z ^
+2025-08-24T23:30:17.0549242Z ##[error]internal/controller/podrightsizing_controller.go:172:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0550200Z // shouldRunAnalysis determines if analysis should run based on schedule
+2025-08-24T23:30:17.0550530Z ^
+2025-08-24T23:30:17.0551049Z ##[error]internal/controller/podrightsizing_controller.go:196:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0551942Z // requeueAfter calculates when to requeue based on schedule
+2025-08-24T23:30:17.0552233Z ^
+2025-08-24T23:30:17.0552754Z ##[error]internal/controller/podrightsizing_controller.go:210:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0553655Z // discoverTargetPods finds pods matching the target criteria
+2025-08-24T23:30:17.0554065Z ^
+2025-08-24T23:30:17.0554608Z ##[error]internal/controller/podrightsizing_controller.go:280:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0555529Z // isNamespaceExcluded checks if a namespace should be excluded
+2025-08-24T23:30:17.0555835Z ^
+2025-08-24T23:30:17.0556356Z ##[error]internal/controller/podrightsizing_controller.go:290:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0557296Z // shouldIncludePod determines if a pod should be included for analysis
+2025-08-24T23:30:17.0557613Z ^
+2025-08-24T23:30:17.0558138Z ##[error]internal/controller/podrightsizing_controller.go:329:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0559012Z // getWorkloadType determines the workload type of a pod
+2025-08-24T23:30:17.0559298Z ^
+2025-08-24T23:30:17.0559819Z ##[error]internal/controller/podrightsizing_controller.go:348:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0560717Z // groupPodsByWorkload groups pods by their parent workload
+2025-08-24T23:30:17.0561008Z ^
+2025-08-24T23:30:17.0561529Z ##[error]internal/controller/podrightsizing_controller.go:362:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0562446Z // getWorkloadName gets the name of the parent workload
+2025-08-24T23:30:17.0562721Z ^
+2025-08-24T23:30:17.0563237Z ##[error]internal/controller/podrightsizing_controller.go:386:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0564523Z // generateWorkloadRecommendations generates recommendations for a workload
+2025-08-24T23:30:17.0564881Z ^
+2025-08-24T23:30:17.0565452Z ##[error]internal/controller/podrightsizing_controller.go:449:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0566403Z // getCurrentResources extracts current resource requirements from a pod
+2025-08-24T23:30:17.0566885Z ^
+2025-08-24T23:30:17.0567440Z ##[error]internal/controller/podrightsizing_controller.go:504:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0568369Z // applyRecommendations applies the generated recommendations
+2025-08-24T23:30:17.0568668Z ^
+2025-08-24T23:30:17.0569199Z ##[error]internal/controller/podrightsizing_controller.go:537:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0570176Z // applyWorkloadRecommendations applies recommendations for a specific workload
+2025-08-24T23:30:17.0570550Z ^
+2025-08-24T23:30:17.0571084Z ##[error]internal/controller/podrightsizing_controller.go:581:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0572052Z // calculateAverageRecommendation calculates average resource recommendations
+2025-08-24T23:30:17.0572413Z ^
+2025-08-24T23:30:17.0572935Z ##[error]internal/controller/podrightsizing_controller.go:592:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0574017Z // updateDeployment updates a Deployment with new resource recommendations
+2025-08-24T23:30:17.0574364Z ^
+2025-08-24T23:30:17.0574919Z ##[error]internal/controller/podrightsizing_controller.go:633:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0575893Z // updateStatefulSet updates a StatefulSet with new resource recommendations
+2025-08-24T23:30:17.0576239Z ^
+2025-08-24T23:30:17.0576764Z ##[error]internal/controller/podrightsizing_controller.go:669:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0577697Z // updateDaemonSet updates a DaemonSet with new resource recommendations
+2025-08-24T23:30:17.0578030Z ^
+2025-08-24T23:30:17.0578554Z ##[error]internal/controller/podrightsizing_controller.go:705:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0579460Z // resourcesEqual compares two ResourceRequirements for equality
+2025-08-24T23:30:17.0579765Z ^
+2025-08-24T23:30:17.0580286Z ##[error]internal/controller/podrightsizing_controller.go:730:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0581214Z // updatePhase updates the status phase of the PodRightSizing resource
+2025-08-24T23:30:17.0581536Z ^
+2025-08-24T23:30:17.0582076Z ##[error]internal/controller/podrightsizing_controller.go:744:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0582965Z // splitWorkloadKey splits a workload key into its components
+2025-08-24T23:30:17.0583265Z ^
+2025-08-24T23:30:17.0583896Z ##[error]internal/controller/podrightsizing_controller.go:749:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0584805Z // SetupWithManager sets up the controller with the Manager
+2025-08-24T23:30:17.0585099Z ^
+2025-08-24T23:30:17.0585637Z ##[error]internal/controller/podrightsizing_controller.go:795:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0586568Z // containerResourcesEqual compares container resources for equality
+2025-08-24T23:30:17.0586894Z ^
+2025-08-24T23:30:17.0587416Z ##[error]internal/controller/podrightsizing_controller.go:815:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0588393Z // podToRightSizingRequests maps pod changes to PodRightSizing reconcile requests
+2025-08-24T23:30:17.0588759Z ^
+2025-08-24T23:30:17.0589285Z ##[error]internal/controller/podrightsizing_controller.go:840:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0590289Z // workloadToRightSizingRequests maps workload changes to PodRightSizing reconcile requests
+2025-08-24T23:30:17.0590695Z ^
+2025-08-24T23:30:17.0591215Z ##[error]internal/controller/podrightsizing_controller.go:863:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0592306Z // podMatchesTarget checks if a pod matches the target criteria
+2025-08-24T23:30:17.0592604Z ^
+2025-08-24T23:30:17.0593145Z ##[error]internal/controller/podrightsizing_controller.go:921:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0594214Z // workloadMatchesTarget checks if a workload matches the target criteria
+2025-08-24T23:30:17.0594555Z ^
+2025-08-24T23:30:17.0595094Z ##[error]internal/controller/podrightsizing_controller.go:995:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0596273Z // getWorkloadTypeFromObject determines the workload type from a Kubernetes object
+2025-08-24T23:30:17.0596646Z ^
+2025-08-24T23:30:17.0597120Z ##[error]pkg/analyzer/cost_calculator.go:10:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0597991Z // CostCalculator calculates cost savings from resource recommendations
+2025-08-24T23:30:17.0598316Z ^
+2025-08-24T23:30:17.0598773Z ##[error]pkg/analyzer/cost_calculator.go:20:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0599636Z // NewCostCalculator creates a cost calculator with default AKS pricing
+2025-08-24T23:30:17.0599960Z ^
+2025-08-24T23:30:17.0600411Z ##[error]pkg/analyzer/cost_calculator.go:30:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0601307Z // NewAWSCostCalculator creates a cost calculator with EKS pricing
+2025-08-24T23:30:17.0601617Z ^
+2025-08-24T23:30:17.0602104Z ##[error]pkg/analyzer/cost_calculator.go:39:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0602954Z // NewGCPCostCalculator creates a cost calculator with GKE pricing
+2025-08-24T23:30:17.0603267Z ^
+2025-08-24T23:30:17.0603712Z ##[error]pkg/analyzer/cost_calculator.go:48:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0604732Z // CalculateSavings calculates potential cost savings from a recommendation
+2025-08-24T23:30:17.0605072Z ^
+2025-08-24T23:30:17.0605542Z ##[error]pkg/analyzer/cost_calculator.go:83:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0606389Z // calculateMonthlySavings calculates monthly cost savings in USD
+2025-08-24T23:30:17.0606711Z ^
+2025-08-24T23:30:17.0607167Z ##[error]pkg/analyzer/cost_calculator.go:102:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0608071Z // EstimateClusterSavings estimates total cluster savings from all recommendations
+2025-08-24T23:30:17.0608441Z ^
+2025-08-24T23:30:17.0608890Z ##[error]pkg/analyzer/cost_calculator.go:139:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0609749Z // ClusterSavingsReport provides a comprehensive savings analysis
+2025-08-24T23:30:17.0610056Z ^
+2025-08-24T23:30:17.0637435Z ##[error]pkg/analyzer/interface.go:10:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0638478Z // MetricsClientInterface defines the interface for metrics clients
+2025-08-24T23:30:17.0638819Z ^
+2025-08-24T23:30:17.0639354Z ##[error]pkg/analyzer/recommendation_engine.go:18:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0640333Z // RecommendationEngine generates resource recommendations based on historical usage
+2025-08-24T23:30:17.0640718Z ^
+2025-08-24T23:30:17.0641229Z ##[error]pkg/analyzer/recommendation_engine.go:28:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0642189Z // NewRecommendationEngine creates a new recommendation engine with default settings
+2025-08-24T23:30:17.0642565Z ^
+2025-08-24T23:30:17.0643059Z ##[error]pkg/analyzer/recommendation_engine.go:39:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0644116Z // GenerateRecommendations generates resource recommendations for a workload
+2025-08-24T23:30:17.0644470Z ^
+2025-08-24T23:30:17.0644970Z ##[error]pkg/analyzer/recommendation_engine.go:68:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0645879Z // generatePodRecommendation generates a recommendation for a single pod
+2025-08-24T23:30:17.0646212Z ^
+2025-08-24T23:30:17.0646717Z ##[error]pkg/analyzer/recommendation_engine.go:148:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0647664Z // ResourceRecommendation represents a recommendation for a single resource type
+2025-08-24T23:30:17.0648218Z ^
+2025-08-24T23:30:17.0648769Z ##[error]pkg/analyzer/recommendation_engine.go:158:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0649722Z // analyzeCPUUsage analyzes CPU usage history and generates recommendations
+2025-08-24T23:30:17.0650067Z ^
+2025-08-24T23:30:17.0650579Z ##[error]pkg/analyzer/recommendation_engine.go:224:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0651669Z // analyzeMemoryUsage analyzes memory usage history and generates recommendations
+2025-08-24T23:30:17.0652037Z ^
+2025-08-24T23:30:17.0652539Z ##[error]pkg/analyzer/recommendation_engine.go:290:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0653439Z // calculatePercentile calculates the percentile value from sorted data
+2025-08-24T23:30:17.0654005Z ^
+2025-08-24T23:30:17.0654679Z ##[error]pkg/analyzer/recommendation_engine.go:317:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0655649Z // calculateConfidence calculates confidence level based on data variance
+2025-08-24T23:30:17.0656002Z ^
+2025-08-24T23:30:17.0656499Z ##[error]pkg/analyzer/recommendation_engine.go:356:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0657339Z // calculateMean calculates the arithmetic mean of values
+2025-08-24T23:30:17.0657621Z ^
+2025-08-24T23:30:17.0658098Z ##[error]pkg/analyzer/recommendation_engine.go:369:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0658974Z // calculateStandardDeviation calculates the standard deviation
+2025-08-24T23:30:17.0659283Z ^
+2025-08-24T23:30:17.0659760Z ##[error]pkg/analyzer/recommendation_engine.go:385:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0660663Z // buildReasonString creates a human-readable reason for the recommendation
+2025-08-24T23:30:17.0661006Z ^
+2025-08-24T23:30:17.0661495Z ##[error]pkg/analyzer/recommendation_engine.go:418:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0662377Z // AdvancedAnalyzer provides more sophisticated analysis methods
+2025-08-24T23:30:17.0662705Z ^
+2025-08-24T23:30:17.0663191Z ##[error]pkg/analyzer/recommendation_engine.go:423:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0664225Z // NewAdvancedAnalyzer creates an analyzer with advanced features
+2025-08-24T23:30:17.0664541Z ^
+2025-08-24T23:30:17.0665046Z ##[error]pkg/analyzer/recommendation_engine.go:430:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0665967Z // AnalyzeWorkloadPatterns analyzes usage patterns across the entire workload
+2025-08-24T23:30:17.0666337Z ^
+2025-08-24T23:30:17.0666821Z ##[error]pkg/analyzer/recommendation_engine.go:471:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0667783Z // analyzeResourcePatterns is a generic function to analyze resource patterns (CPU or Memory)
+2025-08-24T23:30:17.0668172Z ^
+2025-08-24T23:30:17.0668668Z ##[error]pkg/analyzer/recommendation_engine.go:530:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0669556Z // analyzeCPUPatterns analyzes CPU usage patterns across all pods
+2025-08-24T23:30:17.0669884Z ^
+2025-08-24T23:30:17.0670372Z ##[error]pkg/analyzer/recommendation_engine.go:537:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0671284Z // analyzeMemoryPatterns analyzes memory usage patterns across all pods
+2025-08-24T23:30:17.0671626Z ^
+2025-08-24T23:30:17.0672123Z ##[error]pkg/analyzer/recommendation_engine.go:544:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0673023Z // detectUsagePatterns detects common usage patterns in the workload
+2025-08-24T23:30:17.0673343Z ^
+2025-08-24T23:30:17.0673945Z ##[error]pkg/analyzer/recommendation_engine.go:574:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0674876Z // analyzeTimeSeries performs basic time series analysis to detect patterns
+2025-08-24T23:30:17.0675212Z ^
+2025-08-24T23:30:17.0675712Z ##[error]pkg/analyzer/recommendation_engine.go:625:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0676660Z // generateWorkloadRecommendations generates recommendations at the workload level
+2025-08-24T23:30:17.0677210Z ^
+2025-08-24T23:30:17.0677718Z ##[error]pkg/analyzer/recommendation_engine.go:686:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0678673Z // calculateRecommendationPriority calculates priority based on resource analysis
+2025-08-24T23:30:17.0679052Z ^
+2025-08-24T23:30:17.0679535Z ##[error]pkg/analyzer/recommendation_engine.go:698:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0680483Z // Data structures for advanced analysis
+2025-08-24T23:30:17.0680719Z ^
+2025-08-24T23:30:17.0681212Z ##[error]pkg/analyzer/workload_classifier.go:12:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0682095Z // WorkloadClassifier classifies workloads based on usage patterns
+2025-08-24T23:30:17.0682412Z ^
+2025-08-24T23:30:17.0682881Z ##[error]pkg/analyzer/workload_classifier.go:20:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0683712Z // NewWorkloadClassifier creates a new workload classifier
+2025-08-24T23:30:17.0684123Z ^
+2025-08-24T23:30:17.0684632Z ##[error]pkg/analyzer/workload_classifier.go:29:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0685492Z // WorkloadClass represents different types of workloads
+2025-08-24T23:30:17.0685778Z ^
+2025-08-24T23:30:17.0686258Z ##[error]pkg/analyzer/workload_classifier.go:41:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0687107Z // WorkloadClassification contains the classification results
+2025-08-24T23:30:17.0687421Z ^
+2025-08-24T23:30:17.0687888Z ##[error]pkg/analyzer/workload_classifier.go:54:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0688729Z // ResourcePattern describes the usage pattern of a resource
+2025-08-24T23:30:17.0689015Z ^
+2025-08-24T23:30:17.0689475Z ##[error]pkg/analyzer/workload_classifier.go:67:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0690412Z // ClassificationRecommendation provides specific recommendations based on classification
+2025-08-24T23:30:17.0690808Z ^
+2025-08-24T23:30:17.0691269Z ##[error]pkg/analyzer/workload_classifier.go:75:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0692149Z // ClassifyWorkload analyzes workload patterns and classifies the workload
+2025-08-24T23:30:17.0692484Z ^
+2025-08-24T23:30:17.0692955Z ##[error]pkg/analyzer/workload_classifier.go:112:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0694117Z // analyzeResourcePattern analyzes the pattern for a specific resource type
+2025-08-24T23:30:17.0694510Z ^
+2025-08-24T23:30:17.0695052Z ##[error]pkg/analyzer/workload_classifier.go:163:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0696091Z // determineWorkloadClass classifies the workload based on resource patterns
+2025-08-24T23:30:17.0696436Z ^
+2025-08-24T23:30:17.0696912Z ##[error]pkg/analyzer/workload_classifier.go:197:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0697830Z // calculateClassificationConfidence calculates confidence in the classification
+2025-08-24T23:30:17.0698200Z ^
+2025-08-24T23:30:17.0698672Z ##[error]pkg/analyzer/workload_classifier.go:230:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0699668Z // generateClassificationRecommendations generates recommendations based on workload classification
+2025-08-24T23:30:17.0700112Z ^
+2025-08-24T23:30:17.0700582Z ##[error]pkg/analyzer/workload_classifier.go:459:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0701557Z // GetClassificationSummary provides a human-readable summary of the classification
+2025-08-24T23:30:17.0701940Z ^
+2025-08-24T23:30:17.0702373Z ##[error]pkg/metrics/mock.go:10:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0703147Z // MockMetricsClient provides fake metrics for testing
+2025-08-24T23:30:17.0703422Z ^
+2025-08-24T23:30:17.0703997Z ##[error]pkg/metrics/mock.go:18:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0704836Z // NewMockMetricsClient creates a mock metrics client for testing
+2025-08-24T23:30:17.0705145Z ^
+2025-08-24T23:30:17.0705587Z ##[error]pkg/metrics/mock.go:27:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0706576Z // GetPodMetrics generates fake pod metrics for testing
+2025-08-24T23:30:17.0706860Z ^
+2025-08-24T23:30:17.0707312Z ##[error]pkg/metrics/mock.go:86:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0708124Z // GetWorkloadMetrics generates fake workload metrics for testing
+2025-08-24T23:30:17.0708427Z ^
+2025-08-24T23:30:17.0708847Z ##[error]pkg/metrics/mock.go:115:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0709828Z // generateRandomSuffix generates a random suffix like Kubernetes does
+2025-08-24T23:30:17.0710153Z ^
+2025-08-24T23:30:17.0710612Z ##[error]pkg/metrics/prometheus.go:14:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0711453Z // PrometheusClient implements MetricsClient interface for Prometheus
+2025-08-24T23:30:17.0711774Z ^
+2025-08-24T23:30:17.0712214Z ##[error]pkg/metrics/prometheus.go:20:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0713006Z // NewPrometheusClient creates a new Prometheus client
+2025-08-24T23:30:17.0713279Z ^
+2025-08-24T23:30:17.0713925Z ##[error]pkg/metrics/prometheus.go:36:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0714726Z // GetPodMetrics retrieves metrics for a specific pod
+2025-08-24T23:30:17.0714998Z ^
+2025-08-24T23:30:17.0715443Z ##[error]pkg/metrics/prometheus.go:89:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0716258Z // GetWorkloadMetrics retrieves aggregated metrics for a workload
+2025-08-24T23:30:17.0716566Z ^
+2025-08-24T23:30:17.0717007Z ##[error]pkg/metrics/prometheus.go:193:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0717729Z // Helper methods
+2025-08-24T23:30:17.0717902Z ^
+2025-08-24T23:30:17.0718338Z ##[error]pkg/metrics/prometheus.go:237:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0719103Z // MetricsServerClient for fallback functionality
+2025-08-24T23:30:17.0719361Z ^
+2025-08-24T23:30:17.0719794Z ##[error]pkg/metrics/prometheus.go:243:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0720605Z // NewMetricsServerClient creates a new Metrics Server client
+2025-08-24T23:30:17.0720898Z ^
+2025-08-24T23:30:17.0721326Z ##[error]pkg/metrics/prometheus.go:251:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0722142Z // GetPodMetrics retrieves current metrics from Metrics Server
+2025-08-24T23:30:17.0722437Z ^
+2025-08-24T23:30:17.0722866Z ##[error]pkg/metrics/prometheus.go:273:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0723841Z // GetWorkloadMetrics retrieves current metrics for a workload from Metrics Server
+2025-08-24T23:30:17.0724209Z ^
+2025-08-24T23:30:17.0724641Z ##[error]pkg/metrics/types.go:7:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0725424Z // PodMetrics represents resource usage metrics for a pod
+2025-08-24T23:30:17.0725698Z ^
+2025-08-24T23:30:17.0726121Z ##[error]pkg/metrics/types.go:17:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0726917Z // WorkloadMetrics represents aggregated metrics for a workload
+2025-08-24T23:30:17.0727226Z ^
+2025-08-24T23:30:17.0727643Z ##[error]pkg/metrics/types.go:27:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0728436Z // ResourceUsage represents resource usage at a point in time
+2025-08-24T23:30:17.0728724Z ^
+2025-08-24T23:30:17.0729149Z ##[error]test/e2e/e2e_suite_test.go:37:2: Comment should end in a period (godot)
+2025-08-24T23:30:17.0730081Z 	// isCertManagerAlreadyInstalled will be set true when CertManager CRDs be found on the cluster
+2025-08-24T23:30:17.0730493Z 	^
+2025-08-24T23:30:17.0730906Z ##[error]test/e2e/e2e_test.go:33:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0731632Z // namespace where the project is deployed in
+2025-08-24T23:30:17.0731877Z ^
+2025-08-24T23:30:17.0732276Z ##[error]test/e2e/e2e_test.go:36:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0733002Z // serviceAccountName created for the project
+2025-08-24T23:30:17.0733242Z ^
+2025-08-24T23:30:17.0733638Z ##[error]test/e2e/e2e_test.go:39:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0734805Z // metricsServiceName is the name of the metrics service of the project
+2025-08-24T23:30:17.0735137Z ^
+2025-08-24T23:30:17.0735593Z ##[error]test/e2e/e2e_test.go:42:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0736492Z // metricsRoleBindingName is the name of the RBAC that will be created to allow get the metrics data
+2025-08-24T23:30:17.0736889Z ^
+2025-08-24T23:30:17.0737519Z ##[error]test/integration/integration_test.go:18:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0738453Z // TestCompleteWorkflowIntegration tests the complete right-sizing workflow
+2025-08-24T23:30:17.0738809Z ^
+2025-08-24T23:30:17.0739292Z ##[error]test/integration/integration_test.go:162:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0740188Z // TestCostCalculationIntegration tests cost calculation functionality
+2025-08-24T23:30:17.0740522Z ^
+2025-08-24T23:30:17.0741004Z ##[error]test/integration/integration_test.go:192:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0741918Z // TestAdvancedAnalyzerIntegration tests the advanced analyzer features
+2025-08-24T23:30:17.0742256Z ^
+2025-08-24T23:30:17.0742733Z ##[error]test/integration/integration_test.go:244:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0743642Z // TestResourceThresholdValidation tests various threshold configurations
+2025-08-24T23:30:17.0744110Z ^
+2025-08-24T23:30:17.0744614Z ##[error]test/integration/integration_test.go:320:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0745498Z // TestClusterSavingsReport tests cluster-wide savings analysis
+2025-08-24T23:30:17.0745802Z ^
+2025-08-24T23:30:17.0746272Z ##[error]test/integration/integration_test.go:363:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0747220Z // BenchmarkRecommendationGeneration benchmarks the recommendation generation process
+2025-08-24T23:30:17.0747613Z ^
+2025-08-24T23:30:17.0748034Z ##[error]test/utils/utils.go:43:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0748812Z // Run executes the provided command within this context
+2025-08-24T23:30:17.0749084Z ^
+2025-08-24T23:30:17.0749494Z ##[error]test/utils/utils.go:71:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0750277Z // UninstallPrometheusOperator uninstalls the prometheus
+2025-08-24T23:30:17.0750560Z ^
+2025-08-24T23:30:17.0750976Z ##[error]test/utils/utils.go:107:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0751743Z // UninstallCertManager uninstalls the cert manager
+2025-08-24T23:30:17.0752008Z ^
+2025-08-24T23:30:17.0752422Z ##[error]test/utils/utils.go:168:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0753276Z // LoadImageToKindClusterWithName loads a local docker image to the kind cluster
+2025-08-24T23:30:17.0753636Z ^
+2025-08-24T23:30:17.0754183Z ##[error]test/utils/utils.go:194:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0755004Z // GetProjectDir will return the directory where the project is
+2025-08-24T23:30:17.0755317Z ^
+2025-08-24T23:30:17.0755767Z ##[error]test/utils/utils_test.go:185:1: Comment should end in a period (godot)
+2025-08-24T23:30:17.0756500Z // Test constants
+2025-08-24T23:30:17.0756678Z ^
+2025-08-24T23:30:17.0757167Z ##[error]pkg/analyzer/cost_calculator.go:4:1: File is not properly formatted (goimports)
+2025-08-24T23:30:17.0757926Z 	"fmt"
+2025-08-24T23:30:17.0758077Z ^
+2025-08-24T23:30:17.0758603Z ##[error]pkg/analyzer/workload_classifier.go:468:22: S1039: unnecessary use of fmt.Sprintf (gosimple)
+2025-08-24T23:30:17.0759495Z 	summary.WriteString(fmt.Sprintf("\nCPU Pattern:\n"))
+2025-08-24T23:30:17.0759846Z 	                    ^
+2025-08-24T23:30:17.0760399Z ##[error]pkg/analyzer/workload_classifier.go:474:22: S1039: unnecessary use of fmt.Sprintf (gosimple)
+2025-08-24T23:30:17.0761282Z 	summary.WriteString(fmt.Sprintf("\nMemory Pattern:\n"))
+2025-08-24T23:30:17.0761628Z 	                    ^
+2025-08-24T23:30:17.0762176Z ##[error]pkg/analyzer/workload_classifier.go:481:23: S1039: unnecessary use of fmt.Sprintf (gosimple)
+2025-08-24T23:30:17.0763237Z 		summary.WriteString(fmt.Sprintf("\nRecommendations:\n"))
+2025-08-24T23:30:17.0763601Z 		                    ^
+2025-08-24T23:30:17.0764560Z ##[error]internal/controller/podrightsizing_controller.go:60:1: The line is 130 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0765861Z //+kubebuilder:rbac:groups=rightsizing.k8s-rightsizer.io,resources=podrightsizings,verbs=get;list;watch;create;update;patch;delete
+2025-08-24T23:30:17.0766608Z ^
+2025-08-24T23:30:17.0767390Z ##[error]internal/controller/podrightsizing_controller.go:64:1: The line is 125 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0768650Z //+kubebuilder:rbac:groups="apps",resources=deployments;statefulsets;daemonsets;replicasets,verbs=get;list;watch;update;patch
+2025-08-24T23:30:17.0769152Z ^
+2025-08-24T23:30:17.0769906Z ##[error]internal/controller/podrightsizing_controller.go:90:1: The line is 126 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0771172Z 	if err := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseAnalyzing, "Starting resource analysis"); err != nil {
+2025-08-24T23:30:17.0771670Z ^
+2025-08-24T23:30:17.0772425Z ##[error]internal/controller/podrightsizing_controller.go:98:1: The line is 154 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0773932Z 		if updateErr := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseError, fmt.Sprintf("Failed to discover pods: %v", err)); updateErr != nil {
+2025-08-24T23:30:17.0774515Z ^
+2025-08-24T23:30:17.0775288Z ##[error]internal/controller/podrightsizing_controller.go:109:1: The line is 123 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0776574Z 		if err := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseCompleted, "No matching pods found"); err != nil {
+2025-08-24T23:30:17.0777050Z ^
+2025-08-24T23:30:17.0777798Z ##[error]internal/controller/podrightsizing_controller.go:119:1: The line is 129 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0779088Z 	if err := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseRecommending, "Generating recommendations"); err != nil {
+2025-08-24T23:30:17.0779602Z ^
+2025-08-24T23:30:17.0780350Z ##[error]internal/controller/podrightsizing_controller.go:144:1: The line is 124 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0781620Z 		if err := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseUpdating, "Applying recommendations"); err != nil {
+2025-08-24T23:30:17.0782099Z ^
+2025-08-24T23:30:17.0782846Z ##[error]internal/controller/podrightsizing_controller.go:517:1: The line is 122 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0784207Z 		key := fmt.Sprintf("%s/%s/%s", rec.PodReference.Namespace, rec.PodReference.WorkloadType, rec.PodReference.WorkloadName)
+2025-08-24T23:30:17.0784688Z ^
+2025-08-24T23:30:17.0785462Z ##[error]internal/controller/podrightsizing_controller.go:582:1: The line is 152 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0786870Z func (r *PodRightSizingReconciler) calculateAverageRecommendation(recommendations []rightsizingv1alpha1.PodRecommendation) corev1.ResourceRequirements {
+2025-08-24T23:30:17.0787504Z ^
+2025-08-24T23:30:17.0788261Z ##[error]internal/controller/podrightsizing_controller.go:593:1: The line is 150 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0789582Z func (r *PodRightSizingReconciler) updateDeployment(ctx context.Context, namespace, name string, resources corev1.ResourceRequirements) (int, error) {
+2025-08-24T23:30:17.0790162Z ^
+2025-08-24T23:30:17.0790914Z ##[error]internal/controller/podrightsizing_controller.go:816:1: The line is 121 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0792318Z func (r *PodRightSizingReconciler) podToRightSizingRequests(ctx context.Context, obj client.Object) []reconcile.Request {
+2025-08-24T23:30:17.0792822Z ^
+2025-08-24T23:30:17.0793595Z ##[error]internal/controller/podrightsizing_controller.go:841:1: The line is 126 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0794990Z func (r *PodRightSizingReconciler) workloadToRightSizingRequests(ctx context.Context, obj client.Object) []reconcile.Request {
+2025-08-24T23:30:17.0795663Z ^
+2025-08-24T23:30:17.0796384Z ##[error]pkg/analyzer/cost_calculator.go:49:1: The line is 129 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0797596Z func (c *CostCalculator) CalculateSavings(current, recommended corev1.ResourceRequirements) rightsizingv1alpha1.ResourceSavings {
+2025-08-24T23:30:17.0798131Z ^
+2025-08-24T23:30:17.0798819Z ##[error]pkg/analyzer/cost_calculator.go:103:1: The line is 127 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0800035Z func (c *CostCalculator) EstimateClusterSavings(recommendations []rightsizingv1alpha1.PodRecommendation) ClusterSavingsReport {
+2025-08-24T23:30:17.0800566Z ^
+2025-08-24T23:30:17.0801298Z ##[error]pkg/analyzer/workload_classifier.go:76:1: The line is 122 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0802497Z func (w *WorkloadClassifier) ClassifyWorkload(workloadMetrics *metrics.WorkloadMetrics) (*WorkloadClassification, error) {
+2025-08-24T23:30:17.0803006Z ^
+2025-08-24T23:30:17.0803708Z ##[error]pkg/analyzer/workload_classifier.go:113:1: The line is 142 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0805095Z func (w *WorkloadClassifier) analyzeResourcePattern(workloadMetrics *metrics.WorkloadMetrics, resourceType string) (*ResourcePattern, error) {
+2025-08-24T23:30:17.0805673Z ^
+2025-08-24T23:30:17.0806384Z ##[error]pkg/analyzer/workload_classifier.go:231:1: The line is 139 characters long, which exceeds the maximum of 120 characters. (lll)
+2025-08-24T23:30:17.0807666Z func (w *WorkloadClassifier) generateClassificationRecommendations(classification *WorkloadClassification) []ClassificationRecommendation {
+2025-08-24T23:30:17.0808257Z ^
+2025-08-24T23:30:17.0808687Z ##[error]test/demo.go:39:32: Magic number: 95, in <assign> detected (mnd)
+2025-08-24T23:30:17.0809427Z 		CPUUtilizationPercentile:    95,
+2025-08-24T23:30:17.0809793Z 		                             ^
+2025-08-24T23:30:17.0810266Z ##[error]test/demo.go:40:32: Magic number: 95, in <assign> detected (mnd)
+2025-08-24T23:30:17.0811014Z 		MemoryUtilizationPercentile: 95,
+2025-08-24T23:30:17.0811365Z 		                             ^
+2025-08-24T23:30:17.0811830Z ##[error]test/demo.go:41:32: Magic number: 20, in <assign> detected (mnd)
+2025-08-24T23:30:17.0812547Z 		SafetyMargin:                20,
+2025-08-24T23:30:17.0812879Z 		                             ^
+2025-08-24T23:30:17.0813506Z ##[error]internal/controller/podrightsizing_controller.go:407:12: Magic number: 7, in <operation> detected (mnd)
+2025-08-24T23:30:17.0814560Z 		window = 7 * 24 * time.Hour // Default to 7 days
+2025-08-24T23:30:17.0814841Z 		         ^
+2025-08-24T23:30:17.0815372Z ##[error]pkg/analyzer/cost_calculator.go:127:75: Magic number: 12, in <argument> detected (mnd)
+2025-08-24T23:30:17.0816322Z 	report.EstimatedAnnualSavings = fmt.Sprintf("$%.2f", totalMonthlySavings*12)
+2025-08-24T23:30:17.0817272Z 	                                                                         ^
+2025-08-24T23:30:17.0817933Z ##[error]pkg/analyzer/recommendation_engine.go:139:49: Magic number: 134217728, in <argument> detected (mnd)
+2025-08-24T23:30:17.0818974Z 			corev1.ResourceMemory: *resource.NewQuantity(134217728, resource.BinarySI), // 128Mi
+2025-08-24T23:30:17.0819611Z 			                                             ^
+2025-08-24T23:30:17.0820217Z ##[error]pkg/analyzer/recommendation_engine.go:342:25: Magic number: 20, in <argument> detected (mnd)
+2025-08-24T23:30:17.0821100Z 		confidence = 30 + int(20*(1-math.Min(cv-0.5, 0.5)/0.5))
+2025-08-24T23:30:17.0821603Z 		                      ^
+2025-08-24T23:30:17.0822189Z ##[error]pkg/analyzer/recommendation_engine.go:344:25: Magic number: 25, in <argument> detected (mnd)
+2025-08-24T23:30:17.0823048Z 		confidence = 70 + int(25*(1-(cv-0.3)/0.2))
+2025-08-24T23:30:17.0823365Z 		                      ^
+2025-08-24T23:30:17.0824048Z ##[error]pkg/analyzer/recommendation_engine.go:350:50: Magic number: 100.0, in <argument> detected (mnd)
+2025-08-24T23:30:17.0825244Z 	dataPointBoost := math.Min(float64(len(values))/100.0, 0.1) // Up to 10% boost for 100+ points
+2025-08-24T23:30:17.0825899Z 	                                                ^
+2025-08-24T23:30:17.0826542Z ##[error]pkg/analyzer/recommendation_engine.go:499:50: Magic number: 50, in <argument> detected (mnd)
+2025-08-24T23:30:17.0827424Z 			P50:         a.calculatePercentile(podValues, 50),
+2025-08-24T23:30:17.0827961Z 			                                              ^
+2025-08-24T23:30:17.0828564Z ##[error]pkg/analyzer/recommendation_engine.go:500:50: Magic number: 95, in <argument> detected (mnd)
+2025-08-24T23:30:17.0829445Z 			P95:         a.calculatePercentile(podValues, 95),
+2025-08-24T23:30:17.0829971Z 			                                              ^
+2025-08-24T23:30:17.0830566Z ##[error]pkg/analyzer/recommendation_engine.go:501:50: Magic number: 99, in <argument> detected (mnd)
+2025-08-24T23:30:17.0831441Z 			P99:         a.calculatePercentile(podValues, 99),
+2025-08-24T23:30:17.0831972Z 			                                              ^
+2025-08-24T23:30:17.0832572Z ##[error]pkg/analyzer/recommendation_engine.go:522:53: Magic number: 50, in <argument> detected (mnd)
+2025-08-24T23:30:17.0833462Z 		WorkloadP50:     a.calculatePercentile(allValues, 50),
+2025-08-24T23:30:17.0834160Z 		                                                  ^
+2025-08-24T23:30:17.0834778Z ##[error]pkg/analyzer/recommendation_engine.go:523:53: Magic number: 95, in <argument> detected (mnd)
+2025-08-24T23:30:17.0835682Z 		WorkloadP95:     a.calculatePercentile(allValues, 95),
+2025-08-24T23:30:17.0836268Z 		                                                  ^
+2025-08-24T23:30:17.0836867Z ##[error]pkg/analyzer/recommendation_engine.go:524:53: Magic number: 99, in <argument> detected (mnd)
+2025-08-24T23:30:17.0837749Z 		WorkloadP99:     a.calculatePercentile(allValues, 99),
+2025-08-24T23:30:17.0838323Z 		                                                  ^
+2025-08-24T23:30:17.0838933Z ##[error]pkg/analyzer/recommendation_engine.go:638:38: Magic number: 1.2, in <argument> detected (mnd)
+2025-08-24T23:30:17.0839801Z 				analysis.CPUAnalysis.WorkloadP95*1.2,
+2025-08-24T23:30:17.0840217Z 				                                 ^
+2025-08-24T23:30:17.0840791Z ##[error]pkg/analyzer/workload_classifier.go:150:54: Magic number: 95, in <argument> detected (mnd)
+2025-08-24T23:30:17.0841670Z 	pattern.P95Value = w.calculatePercentile(allValues, 95)
+2025-08-24T23:30:17.0842279Z 	                                                    ^
+2025-08-24T23:30:17.0842878Z ##[error]pkg/analyzer/workload_classifier.go:227:39: Magic number: 0.1, in <argument> detected (mnd)
+2025-08-24T23:30:17.0843843Z 	return math.Min(math.Max(confidence, 0.1), 1.0)
+2025-08-24T23:30:17.0844274Z 	                                     ^
+2025-08-24T23:30:17.0844885Z ##[error]pkg/analyzer/recommendation_engine.go:343:17: Magic number: 0.3, in <condition> detected (mnd)
+2025-08-24T23:30:17.0845714Z 	} else if cv > 0.3 {
+2025-08-24T23:30:17.0845947Z 	               ^
+2025-08-24T23:30:17.0846496Z ##[error]pkg/analyzer/recommendation_engine.go:345:17: Magic number: 0.1, in <condition> detected (mnd)
+2025-08-24T23:30:17.0847300Z 	} else if cv > 0.1 {
+2025-08-24T23:30:17.0847522Z 	               ^
+2025-08-24T23:30:17.0848064Z ##[error]pkg/analyzer/recommendation_engine.go:595:10: Magic number: 0.3, in <condition> detected (mnd)
+2025-08-24T23:30:17.0848866Z 	if cv > 0.3 {
+2025-08-24T23:30:17.0849050Z 	        ^
+2025-08-24T23:30:17.0849578Z ##[error]pkg/analyzer/recommendation_engine.go:597:17: Magic number: 0.1, in <condition> detected (mnd)
+2025-08-24T23:30:17.0850595Z 	} else if cv > 0.1 {
+2025-08-24T23:30:17.0850817Z 	               ^
+2025-08-24T23:30:17.0851377Z ##[error]pkg/analyzer/recommendation_engine.go:690:10: Magic number: 0.5, in <condition> detected (mnd)
+2025-08-24T23:30:17.0852182Z 	if cv > 0.5 {
+2025-08-24T23:30:17.0852365Z 	        ^
+2025-08-24T23:30:17.0852897Z ##[error]pkg/analyzer/recommendation_engine.go:692:17: Magic number: 0.2, in <condition> detected (mnd)
+2025-08-24T23:30:17.0853977Z 	} else if cv > 0.2 {
+2025-08-24T23:30:17.0854202Z 	               ^
+2025-08-24T23:30:17.0854776Z ##[error]pkg/analyzer/workload_classifier.go:207:20: Magic number: 0.5, in <condition> detected (mnd)
+2025-08-24T23:30:17.0855590Z 	if cvDifference > 0.5 {
+2025-08-24T23:30:17.0855838Z 	                  ^
+2025-08-24T23:30:17.0856377Z ##[error]pkg/analyzer/workload_classifier.go:291:56: Magic number: 0.5, in <condition> detected (mnd)
+2025-08-24T23:30:17.0857281Z 	if classification.CPUPattern.CoefficientOfVariation > 0.5 {
+2025-08-24T23:30:17.0857940Z 	                                                      ^
+2025-08-24T23:30:17.0858539Z ##[error]pkg/analyzer/workload_classifier.go:300:59: Magic number: 0.3, in <condition> detected (mnd)
+2025-08-24T23:30:17.0859462Z 	if classification.MemoryPattern.CoefficientOfVariation > 0.3 {
+2025-08-24T23:30:17.0860163Z 	                                                         ^
+2025-08-24T23:30:17.0861451Z ##[error]pkg/analyzer/recommendation_engine.go:304:25: Magic number: 100.0, in <operation> detected (mnd)
+2025-08-24T23:30:17.0863039Z 	index := (percentile / 100.0) * float64(len(sortedValues)-1)
+2025-08-24T23:30:17.0863450Z 	                       ^
+2025-08-24T23:30:17.0864316Z ##[error]pkg/analyzer/recommendation_engine.go:346:16: Magic number: 95, in <operation> detected (mnd)
+2025-08-24T23:30:17.0865249Z 		confidence = 95 + int(5*(1-(cv-0.1)/0.2))
+2025-08-24T23:30:17.0865526Z 		             ^
+2025-08-24T23:30:17.0866164Z ##[error]pkg/analyzer/workload_classifier.go:382:25: Magic number: 100.0, in <operation> detected (mnd)
+2025-08-24T23:30:17.0867058Z 	index := (percentile / 100.0) * float64(len(sorted)-1)
+2025-08-24T23:30:17.0867400Z 	                       ^
+2025-08-24T23:30:17.0868648Z ##[error]pkg/analyzer/recommendation_engine.go:320:10: Magic number: 50, in <return> detected (mnd)
+2025-08-24T23:30:17.0870771Z 		return 50 // Low confidence with insufficient data
+2025-08-24T23:30:17.0871220Z 		       ^
+2025-08-24T23:30:17.0872534Z ##[error]pkg/analyzer/cost_calculator.go:24:25: Magic number: 20.0, in <assign> detected (mnd)
+2025-08-24T23:30:17.0873714Z 		CPUCostPerCoreMonth:  20.0, // ~$20 per core per month
+2025-08-24T23:30:17.0874830Z 		                      ^
+2025-08-24T23:30:17.0876840Z ##[error]pkg/analyzer/cost_calculator.go:25:25: Magic number: 2.5, in <assign> detected (mnd)
+2025-08-24T23:30:17.0877727Z 		MemoryCostPerGBMonth: 2.5,  // ~$2.50 per GB per month
+2025-08-24T23:30:17.0878078Z 		                      ^
+2025-08-24T23:30:17.0878620Z ##[error]pkg/analyzer/cost_calculator.go:33:25: Magic number: 25.0, in <assign> detected (mnd)
+2025-08-24T23:30:17.0879524Z 		CPUCostPerCoreMonth:  25.0, // EC2 pricing varies significantly
+2025-08-24T23:30:17.0879918Z 		                      ^
+2025-08-24T23:30:17.0880445Z ##[error]pkg/analyzer/cost_calculator.go:34:25: Magic number: 3.0, in <assign> detected (mnd)
+2025-08-24T23:30:17.0881265Z 		MemoryCostPerGBMonth: 3.0,
+2025-08-24T23:30:17.0881556Z 		                      ^
+2025-08-24T23:30:17.0882098Z ##[error]pkg/analyzer/cost_calculator.go:42:25: Magic number: 22.0, in <assign> detected (mnd)
+2025-08-24T23:30:17.0882906Z 		CPUCostPerCoreMonth:  22.0,
+2025-08-24T23:30:17.0883202Z 		                      ^
+2025-08-24T23:30:17.0883726Z ##[error]pkg/analyzer/cost_calculator.go:43:25: Magic number: 2.8, in <assign> detected (mnd)
+2025-08-24T23:30:17.0884663Z 		MemoryCostPerGBMonth: 2.8,
+2025-08-24T23:30:17.0884951Z 		                      ^
+2025-08-24T23:30:17.0885515Z ##[error]pkg/analyzer/recommendation_engine.go:31:31: Magic number: 20, in <assign> detected (mnd)
+2025-08-24T23:30:17.0886579Z 		DefaultSafetyMargin:        20,  // 20% safety margin
+2025-08-24T23:30:17.0886965Z 		                            ^
+2025-08-24T23:30:17.0887545Z ##[error]pkg/analyzer/recommendation_engine.go:32:31: Magic number: 70, in <assign> detected (mnd)
+2025-08-24T23:30:17.0888454Z 		DefaultConfidenceThreshold: 70,  // 70% confidence threshold
+2025-08-24T23:30:17.0888869Z 		                            ^
+2025-08-24T23:30:17.0889588Z ##[error]pkg/analyzer/recommendation_engine.go:34:31: Magic number: 0.8, in <assign> detected (mnd)
+2025-08-24T23:30:17.0890504Z 		CPURequestMultiplier:       0.8, // Requests = 80% of limits
+2025-08-24T23:30:17.0890906Z 		                            ^
+2025-08-24T23:30:17.0891467Z ##[error]pkg/analyzer/recommendation_engine.go:35:31: Magic number: 0.9, in <assign> detected (mnd)
+2025-08-24T23:30:17.0892374Z 		MemoryRequestMultiplier:    0.9, // Requests = 90% of limits
+2025-08-24T23:30:17.0892781Z 		                            ^
+2025-08-24T23:30:17.0893336Z ##[error]pkg/analyzer/workload_classifier.go:23:35: Magic number: 0.3, in <assign> detected (mnd)
+2025-08-24T23:30:17.0894398Z 		HighVariabilityThreshold:       0.3, // 30% coefficient of variation
+2025-08-24T23:30:17.0894861Z 		                                ^
+2025-08-24T23:30:17.0895437Z ##[error]pkg/analyzer/workload_classifier.go:24:35: Magic number: 2.0, in <assign> detected (mnd)
+2025-08-24T23:30:17.0896351Z 		SpikeDetectionThreshold:        2.0, // 2 standard deviations
+2025-08-24T23:30:17.0896799Z 		                                ^
+2025-08-24T23:30:17.0897353Z ##[error]pkg/analyzer/workload_classifier.go:25:35: Magic number: 20, in <assign> detected (mnd)
+2025-08-24T23:30:17.0898185Z 		MinDataPointsForClassification: 20,
+2025-08-24T23:30:17.0898562Z 		                                ^
+2025-08-24T23:30:17.0899079Z ##[error]pkg/metrics/mock.go:50:36: Magic number: 0.5, in <operation> detected (mnd)
+2025-08-24T23:30:17.0899899Z 		cpuVariance := (rand.Float64() - 0.5) * 2 * m.Variance
+2025-08-24T23:30:17.0900328Z 		                                 ^
+2025-08-24T23:30:17.0900848Z ##[error]pkg/metrics/mock.go:57:36: Magic number: 0.5, in <operation> detected (mnd)
+2025-08-24T23:30:17.0901700Z 		memVariance := (rand.Float64() - 0.5) * 2 * m.Variance
+2025-08-24T23:30:17.0902117Z 		                                 ^
+2025-08-24T23:30:17.0902632Z ##[error]pkg/metrics/mock.go:21:15: Magic number: 0.05, in <assign> detected (mnd)
+2025-08-24T23:30:17.0903396Z 		BaseCPU:    0.05,     // 50m cores
+2025-08-24T23:30:17.0903642Z 		            ^
+2025-08-24T23:30:17.0904252Z ##[error]pkg/metrics/mock.go:22:15: Magic number: 67108864, in <assign> detected (mnd)
+2025-08-24T23:30:17.0905043Z 		BaseMemory: 67108864, // 64Mi bytes
+2025-08-24T23:30:17.0905300Z 		            ^
+2025-08-24T23:30:17.0905760Z ##[error]pkg/metrics/mock.go:23:15: Magic number: 0.3, in <assign> detected (mnd)
+2025-08-24T23:30:17.0906518Z 		Variance:   0.3,      // 30% variance
+2025-08-24T23:30:17.0906768Z 		            ^
+2025-08-24T23:30:17.0907258Z ##[error]pkg/metrics/prometheus.go:246:37: Magic number: 30, in <assign> detected (mnd)
+2025-08-24T23:30:17.0908115Z 		httpClient: &http.Client{Timeout: 30 * time.Second},
+2025-08-24T23:30:17.0908544Z 		                                  ^
+2025-08-24T23:30:17.0909081Z ##[error]pkg/metrics/prometheus.go:263:35: Magic number: 0.05, in <assign> detected (mnd)
+2025-08-24T23:30:17.0909954Z 			{Timestamp: time.Now(), Value: 0.05, Unit: "cores"}, // 50m CPU
+2025-08-24T23:30:17.0910397Z 			                               ^
+2025-08-24T23:30:17.0910946Z ##[error]pkg/metrics/prometheus.go:266:35: Magic number: 67108864, in <assign> detected (mnd)
+2025-08-24T23:30:17.0911850Z 			{Timestamp: time.Now(), Value: 67108864, Unit: "bytes"}, // 64Mi memory
+2025-08-24T23:30:17.0912296Z 			                               ^
+2025-08-24T23:30:17.0912841Z ##[error]pkg/metrics/prometheus.go:289:37: Magic number: 0.05, in <assign> detected (mnd)
+2025-08-24T23:30:17.0913698Z 					{Timestamp: time.Now(), Value: 0.05, Unit: "cores"},
+2025-08-24T23:30:17.0914411Z 					                               ^
+2025-08-24T23:30:17.0915005Z ##[error]pkg/metrics/prometheus.go:292:37: Magic number: 67108864, in <assign> detected (mnd)
+2025-08-24T23:30:17.0915927Z 					{Timestamp: time.Now(), Value: 67108864, Unit: "bytes"},
+2025-08-24T23:30:17.0916358Z 					                               ^
+2025-08-24T23:30:17.0916884Z ##[error]test/utils/utils.go:250:45: Magic number: 0644, in <argument> detected (mnd)
+2025-08-24T23:30:17.0917846Z 	return os.WriteFile(filename, out.Bytes(), 0644)
+2025-08-24T23:30:17.0918338Z 	                                           ^
+2025-08-24T23:30:17.0918942Z ##[error]test/demo.go:116:1: `if err != nil` has complex nested blocks (complexity: 4) (nestif)
+2025-08-24T23:30:17.0919696Z 	if err != nil {
+2025-08-24T23:30:17.0919870Z ^
+2025-08-24T23:30:17.0920654Z ##[error]internal/controller/podrightsizing_controller.go:182:1: `if prs.Spec.AnalysisWindow != ""` has complex nested blocks (complexity: 4) (nestif)
+2025-08-24T23:30:17.0921656Z 	if prs.Spec.AnalysisWindow != "" {
+2025-08-24T23:30:17.0921884Z ^
+2025-08-24T23:30:17.0922645Z ##[error]internal/controller/podrightsizing_controller.go:365:1: `if owner.Kind == "ReplicaSet"` has complex nested blocks (complexity: 4) (nestif)
+2025-08-24T23:30:17.0923613Z 		if owner.Kind == "ReplicaSet" {
+2025-08-24T23:30:17.0923950Z ^
+2025-08-24T23:30:17.0924612Z ##[error]pkg/analyzer/workload_classifier.go:394:1: named return "direction" with type "string" found (nonamedreturns)
+2025-08-24T23:30:17.0925690Z func (w *WorkloadClassifier) analyzeTrend(values []float64) (direction string, strength float64) {
+2025-08-24T23:30:17.0926097Z ^
+2025-08-24T23:30:17.0926557Z ##[error]test/utils/utils.go:27:2: ST1001: should not use dot imports (stylecheck)
+2025-08-24T23:30:17.0927354Z 	. "github.com/onsi/ginkgo/v2" //nolint:golint,revive
+2025-08-24T23:30:17.0927621Z 	^
+2025-08-24T23:30:17.0928379Z ##[error]pkg/analyzer/cost_calculator.go:109:2: assigned to totalMonthlySavings, but reassigned without using the value (wastedassign)
+2025-08-24T23:30:17.0929318Z 	totalMonthlySavings := 0.0
+2025-08-24T23:30:17.0929528Z 	^
+2025-08-24T23:30:17.0930078Z ##[error]internal/controller/podrightsizing_controller.go:392:53: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0930983Z ) ([]rightsizingv1alpha1.PodRecommendation, error) {
+2025-08-24T23:30:17.0931570Z                                                     ^
+2025-08-24T23:30:17.0932201Z ##[error]internal/controller/podrightsizing_controller.go:509:8: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0933035Z ) int {
+2025-08-24T23:30:17.0933203Z        ^
+2025-08-24T23:30:17.0933857Z ##[error]internal/controller/podrightsizing_controller.go:543:17: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0934711Z ) (int, error) {
+2025-08-24T23:30:17.0934927Z                 ^
+2025-08-24T23:30:17.0935504Z ##[error]internal/controller/podrightsizing_controller.go:736:10: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0936339Z ) error {
+2025-08-24T23:30:17.0936511Z          ^
+2025-08-24T23:30:17.0937022Z ##[error]pkg/analyzer/recommendation_engine.go:44:53: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0937872Z ) ([]rightsizingv1alpha1.PodRecommendation, error) {
+2025-08-24T23:30:17.0938450Z                                                     ^
+2025-08-24T23:30:17.0939032Z ##[error]pkg/analyzer/recommendation_engine.go:72:52: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0939881Z ) (*rightsizingv1alpha1.PodRecommendation, error) {
+2025-08-24T23:30:17.0940457Z                                                    ^
+2025-08-24T23:30:17.0941035Z ##[error]pkg/analyzer/recommendation_engine.go:162:42: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0941853Z ) (*ResourceRecommendation, int, error) {
+2025-08-24T23:30:17.0942290Z                                          ^
+2025-08-24T23:30:17.0942862Z ##[error]pkg/analyzer/recommendation_engine.go:228:42: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0943970Z ) (*ResourceRecommendation, int, error) {
+2025-08-24T23:30:17.0944413Z                                          ^
+2025-08-24T23:30:17.0945017Z ##[error]pkg/analyzer/recommendation_engine.go:433:31: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0945830Z ) (*WorkloadAnalysis, error) {
+2025-08-24T23:30:17.0946154Z                               ^
+2025-08-24T23:30:17.0946697Z ##[error]pkg/analyzer/workload_classifier.go:177:67: unnecessary leading newline (whitespace)
+2025-08-24T23:30:17.0947785Z 		memPattern.CoefficientOfVariation > w.HighVariabilityThreshold {
+2025-08-24T23:30:17.0948598Z 		                                                                ^
+2025-08-24T23:30:17.0949482Z ##[error]test/utils/utils.go:208:2: directive `// nolint:gosec` should be written without leading space as `//nolint:gosec` (nolintlint)
+2025-08-24T23:30:17.0950377Z 	// nolint:gosec
+2025-08-24T23:30:17.0950549Z 	^
+2025-08-24T23:30:17.0951304Z ##[error]test/utils/utils.go:249:2: directive `// nolint:gosec` should be written without leading space as `//nolint:gosec` (nolintlint)
+2025-08-24T23:30:17.0952198Z 	// nolint:gosec
+2025-08-24T23:30:17.0952372Z 	^
+2025-08-24T23:30:17.0952458Z 
+2025-08-24T23:30:17.0952925Z level=warning msg="The linter 'exportloopref' is deprecated (since v1.60.2) due to: Since Go1.22 (loopvar) this linter is no longer relevant. Replaced by copyloopvar."
+2025-08-24T23:30:17.0953442Z 
+2025-08-24T23:30:17.0963362Z ##[error]issues found
+2025-08-24T23:30:17.0964641Z Ran golangci-lint in 75221ms
+2025-08-24T23:30:17.0965059Z ##[endgroup]

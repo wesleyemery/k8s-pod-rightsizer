@@ -4,12 +4,17 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
+)
+
+const (
+	httpTimeoutSeconds = 30
+	mockCPUValue       = 0.05     // 50m cores
+	mockMemoryValue    = 67108864 // 64Mi bytes
 )
 
 // PrometheusClient implements MetricsClient interface for Prometheus
@@ -35,7 +40,11 @@ func NewPrometheusClient(prometheusURL string, roundTripper http.RoundTripper) (
 }
 
 // GetPodMetrics retrieves metrics for a specific pod
-func (p *PrometheusClient) GetPodMetrics(ctx context.Context, namespace, podName string, window time.Duration) (*PodMetrics, error) {
+func (p *PrometheusClient) GetPodMetrics(
+	ctx context.Context,
+	namespace, podName string,
+	window time.Duration,
+) (*PodMetrics, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-window)
 
@@ -84,7 +93,11 @@ func (p *PrometheusClient) GetPodMetrics(ctx context.Context, namespace, podName
 }
 
 // GetWorkloadMetrics retrieves aggregated metrics for a workload
-func (p *PrometheusClient) GetWorkloadMetrics(ctx context.Context, namespace, workloadName, workloadType string, window time.Duration) (*WorkloadMetrics, error) {
+func (p *PrometheusClient) GetWorkloadMetrics(
+	ctx context.Context,
+	namespace, workloadName, workloadType string,
+	window time.Duration,
+) (*WorkloadMetrics, error) {
 	endTime := time.Now()
 	startTime := endTime.Add(-window)
 
@@ -216,7 +229,7 @@ func (p *PrometheusClient) convertMatrixToUsageHistory(result model.Value, unit 
 }
 
 func (p *PrometheusClient) convertSamplePairToUsageHistory(values []model.SamplePair, unit string) []ResourceUsage {
-	var history []ResourceUsage
+	history := make([]ResourceUsage, 0, len(values))
 	for _, value := range values {
 		history = append(history, ResourceUsage{
 			Timestamp: value.Timestamp.Time(),
@@ -227,32 +240,36 @@ func (p *PrometheusClient) convertSamplePairToUsageHistory(values []model.Sample
 	return history
 }
 
-// MetricsServerClient for fallback functionality
-type MetricsServerClient struct {
+// ServerClient for fallback functionality.
+type ServerClient struct {
 	httpClient *http.Client
 	baseURL    string
 }
 
-// NewMetricsServerClient creates a new Metrics Server client
-func NewMetricsServerClient(baseURL string) *MetricsServerClient {
-	return &MetricsServerClient{
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+// NewMetricsServerClient creates a new Metrics Server client.
+func NewMetricsServerClient(baseURL string) *ServerClient {
+	return &ServerClient{
+		httpClient: &http.Client{Timeout: httpTimeoutSeconds * time.Second},
 		baseURL:    baseURL,
 	}
 }
 
 // GetPodMetrics retrieves current metrics from Metrics Server
-func (m *MetricsServerClient) GetPodMetrics(ctx context.Context, namespace, podName string, window time.Duration) (*PodMetrics, error) {
+func (m *ServerClient) GetPodMetrics(
+	_ context.Context,
+	namespace, podName string,
+	window time.Duration,
+) (*PodMetrics, error) {
 	// This is a simplified implementation for testing
 	// In production, you'd query the actual metrics server API
 	return &PodMetrics{
 		PodName:   podName,
 		Namespace: namespace,
 		CPUUsageHistory: []ResourceUsage{
-			{Timestamp: time.Now(), Value: 0.05, Unit: "cores"}, // 50m CPU
+			{Timestamp: time.Now(), Value: mockCPUValue, Unit: "cores"},
 		},
 		MemUsageHistory: []ResourceUsage{
-			{Timestamp: time.Now(), Value: 67108864, Unit: "bytes"}, // 64Mi memory
+			{Timestamp: time.Now(), Value: mockMemoryValue, Unit: "bytes"},
 		},
 		StartTime: time.Now().Add(-window),
 		EndTime:   time.Now(),
@@ -260,7 +277,11 @@ func (m *MetricsServerClient) GetPodMetrics(ctx context.Context, namespace, podN
 }
 
 // GetWorkloadMetrics retrieves current metrics for a workload from Metrics Server
-func (m *MetricsServerClient) GetWorkloadMetrics(ctx context.Context, namespace, workloadName, workloadType string, window time.Duration) (*WorkloadMetrics, error) {
+func (m *ServerClient) GetWorkloadMetrics(
+	_ context.Context,
+	namespace, workloadName, workloadType string,
+	window time.Duration,
+) (*WorkloadMetrics, error) {
 	// This is a simplified implementation for testing
 	return &WorkloadMetrics{
 		WorkloadName: workloadName,
@@ -271,52 +292,14 @@ func (m *MetricsServerClient) GetWorkloadMetrics(ctx context.Context, namespace,
 				PodName:   workloadName + "-sample-pod",
 				Namespace: namespace,
 				CPUUsageHistory: []ResourceUsage{
-					{Timestamp: time.Now(), Value: 0.05, Unit: "cores"},
+					{Timestamp: time.Now(), Value: mockCPUValue, Unit: "cores"},
 				},
 				MemUsageHistory: []ResourceUsage{
-					{Timestamp: time.Now(), Value: 67108864, Unit: "bytes"},
+					{Timestamp: time.Now(), Value: mockMemoryValue, Unit: "bytes"},
 				},
 			},
 		},
 		StartTime: time.Now().Add(-window),
 		EndTime:   time.Now(),
 	}, nil
-}
-
-// Simple implementation of quantity parsing
-func parseQuantity(quantity string) (float64, error) {
-	if quantity == "" {
-		return 0, fmt.Errorf("empty quantity")
-	}
-
-	multiplier := 1.0
-	value := quantity
-
-	// Handle common suffixes
-	if len(quantity) > 2 {
-		suffix := quantity[len(quantity)-2:]
-		switch suffix {
-		case "Ki":
-			multiplier = 1024
-			value = quantity[:len(quantity)-2]
-		case "Mi":
-			multiplier = 1024 * 1024
-			value = quantity[:len(quantity)-2]
-		case "Gi":
-			multiplier = 1024 * 1024 * 1024
-			value = quantity[:len(quantity)-2]
-		}
-	}
-
-	if len(quantity) > 1 && quantity[len(quantity)-1:] == "m" {
-		multiplier = 0.001
-		value = quantity[:len(quantity)-1]
-	}
-
-	parsedValue, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse quantity %s: %w", quantity, err)
-	}
-
-	return parsedValue * multiplier, nil
 }

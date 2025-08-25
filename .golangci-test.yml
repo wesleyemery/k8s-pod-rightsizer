@@ -1,0 +1,17 @@
+run:
+  timeout: 1m
+
+linters:
+  enable:
+    - gofmt
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+
+linters-settings:
+  gofmt:
+    simplify: true
+
+issues:
+  exclude-use-default: false

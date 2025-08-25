@@ -1,0 +1,30 @@
+# Codecov configuration
+coverage:
+  precision: 2
+  round: down
+  range: "70...95"
+
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 1%
+        if_ci_failed: error
+    patch:
+      default:
+        target: 70%
+        threshold: 1%
+
+  ignore:
+    - "**/*_test.go"
+    - "**/zz_generated.*"
+    - "**/mock*.go"
+    - "cmd/"
+    - "hack/"
+    - "config/"
+    - "test/demo.go"
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false

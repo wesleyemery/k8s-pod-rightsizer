@@ -1,0 +1,55 @@
+apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
+kind: PodRightSizing
+metadata:
+  name: nginx-rightsizing
+  namespace: default
+spec:
+  target:
+    namespace: default
+    labelSelector:
+      matchLabels:
+        app: nginx
+  analysisWindow: "1h"
+  dryRun: true
+  updatePolicy:
+    strategy: manual
+  thresholds:
+    cpuUtilizationPercentile: 95
+    memoryUtilizationPercentile: 95
+    safetyMargin: 20
+    minCpu: 10m
+    minMemory: 32Mi
+  metricsSource:
+    type: prometheus
+    prometheusConfig:
+      url: "http://prometheus-server.monitoring.svc.cluster.local"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: default
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        ports:
+        - containerPort: 80
