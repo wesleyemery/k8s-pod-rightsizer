@@ -25,7 +25,7 @@ import (
 	"time"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:revive
-	. "github.com/onsi/gomega" //nolint:revive
+	. "github.com/onsi/gomega"    //nolint:revive
 
 	"github.com/wesleyemery/k8s-pod-rightsizer/test/utils"
 )

@@ -12,7 +12,7 @@ spec:
     labelSelector:
       matchLabels:
         app: test-webapp
-  analysisWindow: "1h"
+  analysisWindow: "1m"
   dryRun: true
   schedule: "*/5 * * * *"
   updatePolicy:
@@ -31,4 +31,4 @@ spec:
   metricsSource:
     type: prometheus
     prometheusConfig:
-      url: "http://prometheus-server.monitoring.svc.cluster.local"
+      url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
