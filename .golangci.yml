@@ -1,6 +1,6 @@
 # Minimal golangci-lint configuration
 # Use this for quick checks or when starting to fix issues
-
+version: v1.63.4
 run:
   timeout: 5m
   skip-dirs:
@@ -8,9 +8,7 @@ run:
     - vendor
 
 linters:
-  disable-all: true
   enable:
-    # Only the most critical linters
     - errcheck     # Unchecked errors
     - govet        # Suspicious constructs
     - staticcheck  # Static analysis
@@ -18,23 +16,7 @@ linters:
     - typecheck    # Type checking
 
 issues:
-  # Be very lenient
   max-issues-per-linter: 100
   max-same-issues: 50
-  
-  # Exclude test files from most checks
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
-    
-    # Exclude generated files
-    - path: zz_generated
-      linters:
-        - ALL
 
-  # Common exclusions
-  exclude:
-    - 'Error return value of .* is not checked'
-    - 'declaration of "err" shadows declaration'
-    - 'declaration of "ctx" shadows declaration'
+
