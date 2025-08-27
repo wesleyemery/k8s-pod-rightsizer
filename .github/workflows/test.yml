@@ -92,23 +92,27 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Create Kind config
+        run: |
+          cat <<EOF > kind-config.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            image: kindest/node:${{ matrix.kubernetes-version }}
+            extraMounts:
+            - hostPath: /var/run/docker.sock
+              containerPath: /var/run/docker.sock
+          - role: worker
+            image: kindest/node:${{ matrix.kubernetes-version }}
+          EOF
+
       - name: Setup Kind cluster
         uses: helm/kind-action@v1.10.0
         with:
           version: v0.20.0
-          node_image: kindest/node:${{ matrix.kubernetes-version }}
           cluster_name: rightsizer-test
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-            - role: control-plane
-              image: kindest/node:${{ matrix.kubernetes-version }}
-              extraMounts:
-              - hostPath: /var/run/docker.sock
-                containerPath: /var/run/docker.sock
-            - role: worker
-              image: kindest/node:${{ matrix.kubernetes-version }}
+          config: kind-config.yaml
 
       - name: Install dependencies
         run: |
@@ -186,32 +190,36 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
+      - name: Create Kind config for e2e
+        run: |
+          cat <<EOF > kind-e2e-config.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            kubeadmConfigPatches:
+            - |
+              kind: InitConfiguration
+              nodeRegistration:
+                kubeletExtraArgs:
+                  node-labels: "ingress-ready=true"
+            extraPortMappings:
+            - containerPort: 80
+              hostPort: 80
+              protocol: TCP
+            - containerPort: 443
+              hostPort: 443
+              protocol: TCP
+          - role: worker
+          - role: worker
+          EOF
+
       - name: Setup Kind cluster with monitoring
         uses: helm/kind-action@v1.10.0
         with:
           version: v0.20.0
-          node_image: kindest/node:${{ env.KUBERNETES_VERSION }}
           cluster_name: rightsizer-e2e
-          config: |
-            kind: Cluster
-            apiVersion: kind.x-k8s.io/v1alpha4
-            nodes:
-            - role: control-plane
-              kubeadmConfigPatches:
-              - |
-                kind: InitConfiguration
-                nodeRegistration:
-                  kubeletExtraArgs:
-                    node-labels: "ingress-ready=true"
-              extraPortMappings:
-              - containerPort: 80
-                hostPort: 80
-                protocol: TCP
-              - containerPort: 443
-                hostPort: 443
-                protocol: TCP
-            - role: worker
-            - role: worker
+          config: kind-e2e-config.yaml
 
       - name: Install Helm
         uses: azure/setup-helm@v4
