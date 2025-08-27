@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: nazbeertechplatformseu2prodacr.azurecr.io/ab-inbev-beertech/pod-rightsizer
-  newTag: v0.1.0
+  newName: controller
+  newTag: latest

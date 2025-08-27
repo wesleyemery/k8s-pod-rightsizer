@@ -72,9 +72,7 @@ func main() {
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true, "If set, the metrics endpoint is served securely via HTTPS.")
-	flag.StringVar(&prometheusURL, "prometheus-url",
-		"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090",
-		"Prometheus server URL")
+	flag.StringVar(&prometheusURL, "prometheus-url", "", "Prometheus server URL (can also be set via PROMETHEUS_URL env var)")
 	flag.BoolVar(&useMockMetrics, "use-mock-metrics", false, "Use mock metrics client for testing")
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
@@ -90,6 +88,13 @@ func main() {
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	// Set Prometheus URL from environment variable if not provided via flag
+	if prometheusURL == "" {
+		if envURL := os.Getenv("PROMETHEUS_URL"); envURL != "" {
+			prometheusURL = envURL
+		}
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
