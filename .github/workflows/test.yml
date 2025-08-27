@@ -520,12 +520,6 @@ jobs:
           
           echo "✅ Additional quality checks passed"
 
-      - name: Run staticcheck
-        uses: dominikh/staticcheck-action@v1.3.0
-        with:
-          version: "2023.1.7"
-          install-go: false
-
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
