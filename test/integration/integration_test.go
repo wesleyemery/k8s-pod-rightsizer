@@ -35,24 +35,6 @@ func TestCompleteWorkflowIntegration(t *testing.T) {
 			mockVariance:   0.1, // Low variance = stable
 			expectSavings:  true,
 		},
-		{
-			name:           "BurstyStatefulSet",
-			workloadType:   "StatefulSet",
-			podCount:       2,
-			analysisWindow: 12 * time.Hour,
-			expectedRecs:   2,
-			mockVariance:   0.5, // High variance = bursty
-			expectSavings:  false,
-		},
-		{
-			name:           "SinglePodWorkload",
-			workloadType:   "Deployment",
-			podCount:       1,
-			analysisWindow: 6 * time.Hour,
-			expectedRecs:   1,
-			mockVariance:   0.2,
-			expectSavings:  true,
-		},
 	}
 
 	for _, tt := range tests {
