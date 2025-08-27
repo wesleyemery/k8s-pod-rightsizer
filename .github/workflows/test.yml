@@ -221,21 +221,6 @@ jobs:
           cluster_name: rightsizer-e2e
           config: kind-e2e-config.yaml
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: 'v3.12.0'
-
-      - name: Install Prometheus for metrics
-        run: |
-          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-          helm repo update
-          helm install prometheus prometheus-community/kube-prometheus-stack \
-            --namespace monitoring \
-            --create-namespace \
-            --set prometheus.prometheusSpec.retention=1h \
-            --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
-            --wait --timeout=300s
 
       - name: Build and load Docker image
         run: |
@@ -245,6 +230,15 @@ jobs:
       - name: Deploy controller to cluster
         run: |
           make deploy IMG=pod-rightsizer:test
+          
+          # Patch the controller to use mock metrics
+          kubectl patch deployment pod-rightsizer-controller-manager \
+            -n pod-rightsizer-system \
+            --type='json' \
+            -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--use-mock-metrics"}]'
+          
+          # Restart the deployment to pick up the new args
+          kubectl rollout restart deployment/pod-rightsizer-controller-manager -n pod-rightsizer-system
           kubectl wait --for=condition=available deployment/pod-rightsizer-controller-manager \
             -n pod-rightsizer-system --timeout=120s
 
@@ -336,10 +330,7 @@ jobs:
               cpuUtilizationPercentile: 95
               memoryUtilizationPercentile: 95
               safetyMargin: 20
-            metricsSource:
-              type: prometheus
-              prometheusConfig:
-                url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+            # metricsSource not needed when using mock metrics
           ---
           apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
           kind: PodRightSizing
@@ -358,10 +349,7 @@ jobs:
               cpuUtilizationPercentile: 90
               memoryUtilizationPercentile: 95
               safetyMargin: 30
-            metricsSource:
-              type: prometheus
-              prometheusConfig:
-                url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+            # metricsSource not needed when using mock metrics
           EOF
           
           # Wait for analysis (allow some time for metrics collection)
@@ -415,10 +403,7 @@ jobs:
               cpuUtilizationPercentile: 90
               memoryUtilizationPercentile: 90
               safetyMargin: 15
-            metricsSource:
-              type: prometheus
-              prometheusConfig:
-                url: "http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090"
+            # metricsSource not needed when using mock metrics
           EOF
           
           sleep 30
