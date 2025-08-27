@@ -30,9 +30,18 @@ jobs:
           go mod download
           go mod tidy
 
+      - name: Setup envtest binaries
+        run: |
+          # Setup envtest for controller tests
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          setup-envtest use --use-env -p env
+          source <(setup-envtest use --use-env -p env)
+
       - name: Run unit tests with coverage
         run: |
           mkdir -p bin
+          # Setup envtest environment
+          source <(setup-envtest use --use-env -p env)
           go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
           go tool cover -func=coverage.out
 
