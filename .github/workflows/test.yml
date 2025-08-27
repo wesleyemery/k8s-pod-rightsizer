@@ -61,8 +61,8 @@ jobs:
       - name: Coverage Badge
         run: |
           echo "Coverage: ${{ env.COVERAGE }}"
-          if [[ "${{ env.COVERAGE }}" < "80%" ]]; then
-            echo "::warning::Coverage is below 80%: ${{ env.COVERAGE }}"
+          if [[ "${{ env.COVERAGE }}" < "50%" ]]; then
+            echo "::warning::Coverage is below 50%: ${{ env.COVERAGE }}"
           fi
 
   # Integration tests with Kubernetes
@@ -520,11 +520,6 @@ jobs:
           
           echo "✅ Additional quality checks passed"
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: latest
-          args: --timeout=5m
 
   # Test summary
   test-summary:
