@@ -179,7 +179,7 @@ func main() {
 	if useMockMetrics {
 		setupLog.Info("Using mock metrics client for testing")
 		metricsClient = metrics.NewMockMetricsClient()
-	} else {
+	} else if prometheusURL != "" {
 		setupLog.Info("Using Prometheus metrics client", "url", prometheusURL)
 		prometheusClient, err := metrics.NewPrometheusClient(prometheusURL, http.DefaultTransport)
 		if err != nil {
@@ -188,6 +188,9 @@ func main() {
 		} else {
 			metricsClient = prometheusClient
 		}
+	} else {
+		setupLog.Info("No Prometheus URL configured, using mock metrics client")
+		metricsClient = metrics.NewMockMetricsClient()
 	}
 
 	// Initialize recommendation engine

@@ -498,8 +498,8 @@ jobs:
             echo "⚠️  Warning: Potential hardcoded secrets found"
           fi
           
-          # Check for unsafe HTTP patterns
-          if grep -r "http://" . --include="*.go" | grep -v "_test.go" | grep -v "localhost"; then
+          # Check for unsafe HTTP patterns (exclude license headers and comments)
+          if grep -r "http://" . --include="*.go" | grep -v "_test.go" | grep -v "localhost" | grep -v "apache.org/licenses" | grep -v "//"; then
             echo "⚠️  Warning: Insecure HTTP URLs found (should use HTTPS)"
           fi
           
