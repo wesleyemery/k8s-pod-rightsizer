@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/robfig/cron/v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -179,40 +180,49 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 // shouldRunAnalysis determines if analysis should run based on schedule
 func (r *PodRightSizingReconciler) shouldRunAnalysis(prs *rightsizingv1alpha1.PodRightSizing) bool {
-	// For now, simple time-based logic
-	// In a production implementation, you'd want proper cron parsing
+	// Always run if no previous analysis
 	if prs.Status.LastAnalysisTime == nil {
 		return true
 	}
 
-	// Parse analysis window or default to 24 hours
-	interval := 24 * time.Hour
-	if prs.Spec.AnalysisWindow != "" {
-		if d, err := time.ParseDuration(prs.Spec.AnalysisWindow); err == nil {
-			// For testing, run analysis every hour if window is less than 1 day
-			if d < 24*time.Hour {
-				interval = time.Hour
-			} else {
-				interval = d / 24 // Run daily for longer windows
-			}
-		}
+	// Parse the cron schedule
+	schedule, err := cron.ParseStandard(prs.Spec.Schedule)
+	if err != nil {
+		// If cron parsing fails, fall back to running every hour
+		return time.Since(prs.Status.LastAnalysisTime.Time) >= time.Hour
 	}
 
-	return time.Since(prs.Status.LastAnalysisTime.Time) >= interval
+	// Calculate the next scheduled time after the last analysis
+	nextRun := schedule.Next(prs.Status.LastAnalysisTime.Time)
+
+	// Check if it's time to run (current time >= next scheduled time)
+	return time.Now().After(nextRun) || time.Now().Equal(nextRun)
 }
 
-// requeueAfter calculates when to requeue based on schedule
+// requeueAfter calculates when to requeue based on cron schedule
 func (r *PodRightSizingReconciler) requeueAfter(prs *rightsizingv1alpha1.PodRightSizing) ctrl.Result {
-	// Simple implementation - requeue every hour for testing, daily for production
-	interval := time.Hour
-
-	if prs.Spec.AnalysisWindow != "" {
-		if d, err := time.ParseDuration(prs.Spec.AnalysisWindow); err == nil && d >= 24*time.Hour {
-			interval = 24 * time.Hour
-		}
+	// Parse the cron schedule
+	schedule, err := cron.ParseStandard(prs.Spec.Schedule)
+	if err != nil {
+		// If cron parsing fails, fall back to requeuing every hour
+		return ctrl.Result{RequeueAfter: time.Hour}
 	}
 
-	return ctrl.Result{RequeueAfter: interval}
+	// Calculate the next scheduled time from now
+	nextRun := schedule.Next(time.Now())
+	requeueAfter := time.Until(nextRun)
+
+	// Ensure we don't requeue too far in the future (max 24 hours)
+	if requeueAfter > 24*time.Hour {
+		requeueAfter = 24 * time.Hour
+	}
+
+	// Ensure we don't requeue too soon (min 1 minute)
+	if requeueAfter < time.Minute {
+		requeueAfter = time.Minute
+	}
+
+	return ctrl.Result{RequeueAfter: requeueAfter}
 }
 
 // discoverTargetPods finds pods matching the target criteria
