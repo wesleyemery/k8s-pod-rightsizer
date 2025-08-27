@@ -59,12 +59,12 @@ func (m *MockMetricsClient) GetPodMetrics(
 
 		// Generate CPU usage with some variance
 		cpuVariance := (rand.Float64() - varianceOffset) * varianceMultiplier * m.Variance
-		
+
 		// For high variance (> 0.4), add occasional spikes to ensure bursty classification
 		if m.Variance > 0.4 && rand.Float64() < 0.2 { // 20% chance of spike
 			cpuVariance += m.Variance * 2 // Add extra spike
 		}
-		
+
 		cpuValue := m.BaseCPU * (1 + cpuVariance)
 		if cpuValue < 0 {
 			cpuValue = 0.001
@@ -72,12 +72,12 @@ func (m *MockMetricsClient) GetPodMetrics(
 
 		// Generate memory usage with some variance
 		memVariance := (rand.Float64() - varianceOffset) * varianceMultiplier * m.Variance
-		
+
 		// For high variance (> 0.4), add occasional spikes to ensure bursty classification
 		if m.Variance > 0.4 && rand.Float64() < 0.2 { // 20% chance of spike
 			memVariance += m.Variance * 2 // Add extra spike
 		}
-		
+
 		memValue := m.BaseMemory * (1 + memVariance)
 		if memValue < 0 {
 			memValue = 1024
