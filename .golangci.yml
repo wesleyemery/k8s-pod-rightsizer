@@ -1,11 +1,7 @@
 # Minimal golangci-lint configuration
 # Use this for quick checks or when starting to fix issues
-version: v1.63.4
 run:
   timeout: 5m
-  skip-dirs:
-    - test/e2e
-    - vendor
 
 linters:
   enable:
