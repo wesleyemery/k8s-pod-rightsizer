@@ -1,5 +1,6 @@
-# Minimal golangci-lint configuration
-# Use this for quick checks or when starting to fix issues
+# golangci-lint configuration
+# Note: staticcheck disabled due to Go 1.23 range-over-function compatibility issue
+# Can re-enable when staticcheck >= v0.5.0 is available
 run:
   timeout: 5m
 
@@ -7,9 +8,13 @@ linters:
   enable:
     - errcheck     # Unchecked errors
     - govet        # Suspicious constructs
-    - staticcheck  # Static analysis
     - ineffassign  # Ineffectual assignments
     - typecheck    # Type checking
+    - unused       # Unused code detection
+    - gosimple     # Simplify code
+    - goconst      # Repeated strings that could be constants
+  disable:
+    - staticcheck  # Temporarily disabled due to Go 1.23 compatibility issue
 
 issues:
   max-issues-per-linter: 100
