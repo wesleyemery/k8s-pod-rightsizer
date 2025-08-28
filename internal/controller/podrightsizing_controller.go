@@ -507,33 +507,24 @@ func (r *PodRightSizingReconciler) meetsChangeThreshold(
 ) bool {
 	threshold := float64(thresholdPercent) / 100.0
 
-	fmt.Printf("DEBUG: meetsChangeThreshold - threshold: %d%% (%.2f)\n", thresholdPercent, threshold)
 
 	// Check CPU request change
 	currentCPU := current.Requests[corev1.ResourceCPU]
 	recommendedCPU := recommended.Requests[corev1.ResourceCPU]
 
-	fmt.Printf("DEBUG: CPU - current: %s (zero: %v), recommended: %s (zero: %v)\n",
-		currentCPU.String(), currentCPU.IsZero(), recommendedCPU.String(), recommendedCPU.IsZero())
 
 	// Handle missing/zero resources more gracefully
 	if currentCPU.IsZero() && recommendedCPU.IsZero() {
-		fmt.Printf("DEBUG: Both CPU values are zero, skipping CPU check\n")
 	} else if currentCPU.IsZero() && !recommendedCPU.IsZero() {
-		fmt.Printf("DEBUG: Current CPU is zero but recommended is not, meets threshold\n")
 		return true
 	} else if !currentCPU.IsZero() && recommendedCPU.IsZero() {
-		fmt.Printf("DEBUG: Recommended CPU is zero but current is not, meets threshold\n")
 		return true
 	} else if !currentCPU.IsZero() && !recommendedCPU.IsZero() {
 		currentValue := currentCPU.AsApproximateFloat64()
 		recommendedValue := recommendedCPU.AsApproximateFloat64()
-		fmt.Printf("DEBUG: CPU values - current: %.6f, recommended: %.6f\n", currentValue, recommendedValue)
 		if currentValue > 0 {
 			change := abs((recommendedValue - currentValue) / currentValue)
-			fmt.Printf("DEBUG: CPU change: %.2f%% (threshold: %.2f%%)\n", change*100, threshold*100)
 			if change >= threshold {
-				fmt.Printf("DEBUG: CPU meets threshold, returning true\n")
 				return true
 			}
 		}
@@ -543,33 +534,24 @@ func (r *PodRightSizingReconciler) meetsChangeThreshold(
 	currentMem := current.Requests[corev1.ResourceMemory]
 	recommendedMem := recommended.Requests[corev1.ResourceMemory]
 
-	fmt.Printf("DEBUG: Memory - current: %s (zero: %v), recommended: %s (zero: %v)\n",
-		currentMem.String(), currentMem.IsZero(), recommendedMem.String(), recommendedMem.IsZero())
 
 	// Handle missing/zero resources more gracefully
 	if currentMem.IsZero() && recommendedMem.IsZero() {
-		fmt.Printf("DEBUG: Both Memory values are zero, skipping Memory check\n")
 	} else if currentMem.IsZero() && !recommendedMem.IsZero() {
-		fmt.Printf("DEBUG: Current Memory is zero but recommended is not, meets threshold\n")
 		return true
 	} else if !currentMem.IsZero() && recommendedMem.IsZero() {
-		fmt.Printf("DEBUG: Recommended Memory is zero but current is not, meets threshold\n")
 		return true
 	} else if !currentMem.IsZero() && !recommendedMem.IsZero() {
 		currentValue := currentMem.AsApproximateFloat64()
 		recommendedValue := recommendedMem.AsApproximateFloat64()
-		fmt.Printf("DEBUG: Memory values - current: %.0f, recommended: %.0f\n", currentValue, recommendedValue)
 		if currentValue > 0 {
 			change := abs((recommendedValue - currentValue) / currentValue)
-			fmt.Printf("DEBUG: Memory change: %.2f%% (threshold: %.2f%%)\n", change*100, threshold*100)
 			if change >= threshold {
-				fmt.Printf("DEBUG: Memory meets threshold, returning true\n")
 				return true
 			}
 		}
 	}
 
-	fmt.Printf("DEBUG: Neither CPU nor Memory meet threshold, returning false\n")
 	return false
 }
 
