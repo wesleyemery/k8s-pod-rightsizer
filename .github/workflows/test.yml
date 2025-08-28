@@ -42,7 +42,7 @@ jobs:
           mkdir -p bin
           # Setup envtest environment
           source <(setup-envtest use --use-env -p env)
-          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v /test/e2e)
+          go test -v -race -coverprofile=coverage.out -covermode=atomic $(go list ./... | grep -v -E '/test/(e2e|integration)')
           go tool cover -func=coverage.out
 
       - name: Generate coverage report
