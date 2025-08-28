@@ -44,8 +44,8 @@ func (m *MockMetricsClient) GetPodMetrics(
 	now := time.Now()
 	start := now.Add(-window)
 
-	// Generate sample data points (one per 5 minutes)
-	interval := 5 * time.Minute
+	// Generate sample data points (one per 1 minute for testing)
+	interval := 1 * time.Minute
 	dataPoints := int(window / interval)
 
 	if dataPoints == 0 {

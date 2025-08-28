@@ -237,11 +237,16 @@ jobs:
             --type='json' \
             -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--use-mock-metrics"}]'
           
-          # Also set environment variable for stable mock data
+          # Also set environment variables for testing
           kubectl patch deployment pod-rightsizer-controller-manager \
             -n pod-rightsizer-system \
             --type='json' \
             -p='[{"op": "add", "path": "/spec/template/spec/containers/0/env/-", "value": {"name": "MOCK_VARIANCE", "value": "0.1"}}]'
+          
+          kubectl patch deployment pod-rightsizer-controller-manager \
+            -n pod-rightsizer-system \
+            --type='json' \
+            -p='[{"op": "add", "path": "/spec/template/spec/containers/0/env/-", "value": {"name": "CONFIDENCE_THRESHOLD", "value": "50"}}]'
           
           # Restart the deployment to pick up the new args
           kubectl rollout restart deployment/pod-rightsizer-controller-manager -n pod-rightsizer-system
@@ -328,7 +333,7 @@ jobs:
               labelSelector:
                 matchLabels:
                   app: e2e-test-stable
-            analysisWindow: "5m"
+            analysisWindow: "15m"
             dryRun: true
             updatePolicy:
               strategy: manual
@@ -348,7 +353,7 @@ jobs:
               labelSelector:
                 matchLabels:
                   app: e2e-test-stateful
-            analysisWindow: "5m"
+            analysisWindow: "15m"
             dryRun: true
             updatePolicy:
               strategy: manual

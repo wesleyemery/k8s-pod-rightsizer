@@ -207,6 +207,14 @@ func main() {
 	// Initialize recommendation engine
 	recommendEngine := analyzer.NewRecommendationEngine()
 
+	// Configure recommendation engine for testing if needed
+	if confidenceThresholdStr := os.Getenv("CONFIDENCE_THRESHOLD"); confidenceThresholdStr != "" {
+		if confidenceThreshold, err := strconv.Atoi(confidenceThresholdStr); err == nil {
+			recommendEngine.DefaultConfidenceThreshold = confidenceThreshold
+			setupLog.Info("Using custom confidence threshold", "threshold", confidenceThreshold)
+		}
+	}
+
 	if err = (&controller.PodRightSizingReconciler{
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
