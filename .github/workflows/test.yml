@@ -231,11 +231,17 @@ jobs:
         run: |
           make deploy IMG=pod-rightsizer:test
           
-          # Patch the controller to use mock metrics
+          # Patch the controller to use mock metrics with low variance for stable recommendations
           kubectl patch deployment pod-rightsizer-controller-manager \
             -n pod-rightsizer-system \
             --type='json' \
             -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--use-mock-metrics"}]'
+          
+          # Also set environment variable for stable mock data
+          kubectl patch deployment pod-rightsizer-controller-manager \
+            -n pod-rightsizer-system \
+            --type='json' \
+            -p='[{"op": "add", "path": "/spec/template/spec/containers/0/env/-", "value": {"name": "MOCK_VARIANCE", "value": "0.1"}}]'
           
           # Restart the deployment to pick up the new args
           kubectl rollout restart deployment/pod-rightsizer-controller-manager -n pod-rightsizer-system

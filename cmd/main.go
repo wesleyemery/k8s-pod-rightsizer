@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -178,7 +179,17 @@ func main() {
 
 	if useMockMetrics {
 		setupLog.Info("Using mock metrics client for testing")
-		metricsClient = metrics.NewMockMetricsClient()
+		mockClient := metrics.NewMockMetricsClient()
+		
+		// Configure mock variance from environment variable
+		if mockVarianceStr := os.Getenv("MOCK_VARIANCE"); mockVarianceStr != "" {
+			if mockVariance, err := strconv.ParseFloat(mockVarianceStr, 64); err == nil {
+				mockClient.Variance = mockVariance
+				setupLog.Info("Using custom mock variance", "variance", mockVariance)
+			}
+		}
+		
+		metricsClient = mockClient
 	} else if prometheusURL != "" {
 		setupLog.Info("Using Prometheus metrics client", "url", prometheusURL)
 		prometheusClient, err := metrics.NewPrometheusClient(prometheusURL, http.DefaultTransport)
