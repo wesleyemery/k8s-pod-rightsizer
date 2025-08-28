@@ -274,11 +274,11 @@ jobs:
                   image: nginx:alpine
                   resources:
                     requests:
-                      cpu: 100m
-                      memory: 128Mi
-                    limits:
                       cpu: 500m
-                      memory: 512Mi
+                      memory: 1Gi
+                    limits:
+                      cpu: 2000m
+                      memory: 2Gi
           ---
           apiVersion: apps/v1
           kind: StatefulSet
@@ -306,11 +306,11 @@ jobs:
                     value: test123
                   resources:
                     requests:
-                      cpu: 200m
-                      memory: 256Mi
-                    limits:
-                      cpu: 1000m
+                      cpu: 800m
                       memory: 1Gi
+                    limits:
+                      cpu: 2000m
+                      memory: 2Gi
           EOF
           
           # Wait for deployments
@@ -336,6 +336,7 @@ jobs:
               cpuUtilizationPercentile: 95
               memoryUtilizationPercentile: 95
               safetyMargin: 20
+              minChangeThreshold: 5
             # metricsSource not needed when using mock metrics
           ---
           apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
@@ -355,6 +356,7 @@ jobs:
               cpuUtilizationPercentile: 90
               memoryUtilizationPercentile: 95
               safetyMargin: 30
+              minChangeThreshold: 5
             # metricsSource not needed when using mock metrics
           EOF
           
