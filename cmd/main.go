@@ -215,6 +215,13 @@ func main() {
 		}
 	}
 
+	if minDataPointsStr := os.Getenv("MIN_DATA_POINTS"); minDataPointsStr != "" {
+		if minDataPoints, err := strconv.Atoi(minDataPointsStr); err == nil {
+			recommendEngine.MinDataPoints = minDataPoints
+			setupLog.Info("Using custom minimum data points", "minDataPoints", minDataPoints)
+		}
+	}
+
 	if err = (&controller.PodRightSizingReconciler{
 		Client:          mgr.GetClient(),
 		Scheme:          mgr.GetScheme(),
