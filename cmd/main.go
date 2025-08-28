@@ -180,7 +180,7 @@ func main() {
 	if useMockMetrics {
 		setupLog.Info("Using mock metrics client for testing")
 		mockClient := metrics.NewMockMetricsClient()
-		
+
 		// Configure mock variance from environment variable
 		if mockVarianceStr := os.Getenv("MOCK_VARIANCE"); mockVarianceStr != "" {
 			if mockVariance, err := strconv.ParseFloat(mockVarianceStr, 64); err == nil {
@@ -188,7 +188,7 @@ func main() {
 				setupLog.Info("Using custom mock variance", "variance", mockVariance)
 			}
 		}
-		
+
 		metricsClient = mockClient
 	} else if prometheusURL != "" {
 		setupLog.Info("Using Prometheus metrics client", "url", prometheusURL)
