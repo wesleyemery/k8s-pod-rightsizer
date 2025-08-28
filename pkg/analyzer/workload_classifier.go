@@ -480,20 +480,20 @@ func (classification *WorkloadClassification) GetClassificationSummary() string 
 	summary.WriteString(fmt.Sprintf("Classification: %s (Confidence: %.1f%%)\n",
 		classification.Class, classification.Confidence*100))
 
-	summary.WriteString(fmt.Sprintf("\nCPU Pattern:\n"))
+	summary.WriteString("\nCPU Pattern:\n")
 	summary.WriteString(fmt.Sprintf("  - Variability: %.2f (CV)\n", classification.CPUPattern.CoefficientOfVariation))
 	summary.WriteString(fmt.Sprintf("  - Trend: %s (%.1f%%)\n",
 		classification.CPUPattern.TrendDirection, classification.CPUPattern.TrendStrength*100))
 	summary.WriteString(fmt.Sprintf("  - Spike Frequency: %.1f%%\n", classification.CPUPattern.SpikeFrequency*100))
 
-	summary.WriteString(fmt.Sprintf("\nMemory Pattern:\n"))
+	summary.WriteString("\nMemory Pattern:\n")
 	summary.WriteString(fmt.Sprintf("  - Variability: %.2f (CV)\n", classification.MemoryPattern.CoefficientOfVariation))
 	summary.WriteString(fmt.Sprintf("  - Trend: %s (%.1f%%)\n",
 		classification.MemoryPattern.TrendDirection, classification.MemoryPattern.TrendStrength*100))
 	summary.WriteString(fmt.Sprintf("  - Spike Frequency: %.1f%%\n", classification.MemoryPattern.SpikeFrequency*100))
 
 	if len(classification.Recommendations) > 0 {
-		summary.WriteString(fmt.Sprintf("\nRecommendations:\n"))
+		summary.WriteString("\nRecommendations:\n")
 		for _, rec := range classification.Recommendations {
 			summary.WriteString(fmt.Sprintf("  - %s (%s): %s\n", rec.Type, rec.Priority, rec.Description))
 		}

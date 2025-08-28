@@ -22,6 +22,7 @@ type MockMetricsClient struct {
 	BaseCPU    float64
 	BaseMemory float64
 	Variance   float64
+	PodCount   int // Number of pods to simulate in workload, defaults to 3
 }
 
 // NewMockMetricsClient creates a mock metrics client for testing
@@ -30,6 +31,7 @@ func NewMockMetricsClient() *MockMetricsClient {
 		BaseCPU:    defaultBaseCPU,
 		BaseMemory: defaultBaseMemory,
 		Variance:   defaultVariance,
+		PodCount:   3, // Default pod count
 	}
 }
 
@@ -42,8 +44,8 @@ func (m *MockMetricsClient) GetPodMetrics(
 	now := time.Now()
 	start := now.Add(-window)
 
-	// Generate sample data points (one per 5 minutes)
-	interval := 5 * time.Minute
+	// Generate sample data points (one per 1 minute for testing)
+	interval := 1 * time.Minute
 	dataPoints := int(window / interval)
 
 	if dataPoints == 0 {
@@ -57,6 +59,12 @@ func (m *MockMetricsClient) GetPodMetrics(
 
 		// Generate CPU usage with some variance
 		cpuVariance := (rand.Float64() - varianceOffset) * varianceMultiplier * m.Variance
+
+		// For high variance (> 0.4), add occasional spikes to ensure bursty classification
+		if m.Variance > 0.4 && rand.Float64() < 0.2 { // 20% chance of spike
+			cpuVariance += m.Variance * 2 // Add extra spike
+		}
+
 		cpuValue := m.BaseCPU * (1 + cpuVariance)
 		if cpuValue < 0 {
 			cpuValue = 0.001
@@ -64,6 +72,12 @@ func (m *MockMetricsClient) GetPodMetrics(
 
 		// Generate memory usage with some variance
 		memVariance := (rand.Float64() - varianceOffset) * varianceMultiplier * m.Variance
+
+		// For high variance (> 0.4), add occasional spikes to ensure bursty classification
+		if m.Variance > 0.4 && rand.Float64() < 0.2 { // 20% chance of spike
+			memVariance += m.Variance * 2 // Add extra spike
+		}
+
 		memValue := m.BaseMemory * (1 + memVariance)
 		if memValue < 0 {
 			memValue = 1024
@@ -99,7 +113,10 @@ func (m *MockMetricsClient) GetWorkloadMetrics(
 	window time.Duration,
 ) (*WorkloadMetrics, error) {
 	// Simulate multiple pods in the workload
-	podCount := 3
+	podCount := m.PodCount
+	if podCount == 0 {
+		podCount = 3 // Default fallback
+	}
 	var pods []PodMetrics
 
 	for i := 0; i < podCount; i++ {

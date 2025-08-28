@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -72,9 +73,7 @@ func main() {
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false, "Enable leader election for controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", true, "If set, the metrics endpoint is served securely via HTTPS.")
-	flag.StringVar(&prometheusURL, "prometheus-url",
-		"http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090",
-		"Prometheus server URL")
+	flag.StringVar(&prometheusURL, "prometheus-url", "", "Prometheus server URL (can also be set via PROMETHEUS_URL env var)")
 	flag.BoolVar(&useMockMetrics, "use-mock-metrics", false, "Use mock metrics client for testing")
 	flag.StringVar(&webhookCertPath, "webhook-cert-path", "", "The directory that contains the webhook certificate.")
 	flag.StringVar(&webhookCertName, "webhook-cert-name", "tls.crt", "The name of the webhook certificate file.")
@@ -90,6 +89,13 @@ func main() {
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+
+	// Set Prometheus URL from environment variable if not provided via flag
+	if prometheusURL == "" {
+		if envURL := os.Getenv("PROMETHEUS_URL"); envURL != "" {
+			prometheusURL = envURL
+		}
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -173,8 +179,18 @@ func main() {
 
 	if useMockMetrics {
 		setupLog.Info("Using mock metrics client for testing")
-		metricsClient = metrics.NewMockMetricsClient()
-	} else {
+		mockClient := metrics.NewMockMetricsClient()
+
+		// Configure mock variance from environment variable
+		if mockVarianceStr := os.Getenv("MOCK_VARIANCE"); mockVarianceStr != "" {
+			if mockVariance, err := strconv.ParseFloat(mockVarianceStr, 64); err == nil {
+				mockClient.Variance = mockVariance
+				setupLog.Info("Using custom mock variance", "variance", mockVariance)
+			}
+		}
+
+		metricsClient = mockClient
+	} else if prometheusURL != "" {
 		setupLog.Info("Using Prometheus metrics client", "url", prometheusURL)
 		prometheusClient, err := metrics.NewPrometheusClient(prometheusURL, http.DefaultTransport)
 		if err != nil {
@@ -183,10 +199,28 @@ func main() {
 		} else {
 			metricsClient = prometheusClient
 		}
+	} else {
+		setupLog.Info("No Prometheus URL configured, using mock metrics client")
+		metricsClient = metrics.NewMockMetricsClient()
 	}
 
 	// Initialize recommendation engine
 	recommendEngine := analyzer.NewRecommendationEngine()
+
+	// Configure recommendation engine for testing if needed
+	if confidenceThresholdStr := os.Getenv("CONFIDENCE_THRESHOLD"); confidenceThresholdStr != "" {
+		if confidenceThreshold, err := strconv.Atoi(confidenceThresholdStr); err == nil {
+			recommendEngine.DefaultConfidenceThreshold = confidenceThreshold
+			setupLog.Info("Using custom confidence threshold", "threshold", confidenceThreshold)
+		}
+	}
+
+	if minDataPointsStr := os.Getenv("MIN_DATA_POINTS"); minDataPointsStr != "" {
+		if minDataPoints, err := strconv.Atoi(minDataPointsStr); err == nil {
+			recommendEngine.MinDataPoints = minDataPoints
+			setupLog.Info("Using custom minimum data points", "minDataPoints", minDataPoints)
+		}
+	}
 
 	if err = (&controller.PodRightSizingReconciler{
 		Client:          mgr.GetClient(),
