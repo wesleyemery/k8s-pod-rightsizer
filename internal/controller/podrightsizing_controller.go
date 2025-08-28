@@ -507,11 +507,9 @@ func (r *PodRightSizingReconciler) meetsChangeThreshold(
 ) bool {
 	threshold := float64(thresholdPercent) / 100.0
 
-
 	// Check CPU request change
 	currentCPU := current.Requests[corev1.ResourceCPU]
 	recommendedCPU := recommended.Requests[corev1.ResourceCPU]
-
 
 	// Handle missing/zero resources more gracefully
 	if currentCPU.IsZero() && recommendedCPU.IsZero() {
@@ -533,7 +531,6 @@ func (r *PodRightSizingReconciler) meetsChangeThreshold(
 	// Check Memory request change
 	currentMem := current.Requests[corev1.ResourceMemory]
 	recommendedMem := recommended.Requests[corev1.ResourceMemory]
-
 
 	// Handle missing/zero resources more gracefully
 	if currentMem.IsZero() && recommendedMem.IsZero() {
