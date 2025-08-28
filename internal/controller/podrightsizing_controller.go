@@ -488,7 +488,7 @@ func (r *PodRightSizingReconciler) meetsChangeThreshold(
 	// Check CPU request change
 	currentCPU := current.Requests[corev1.ResourceCPU]
 	recommendedCPU := recommended.Requests[corev1.ResourceCPU]
-	
+
 	if !currentCPU.IsZero() && !recommendedCPU.IsZero() {
 		currentValue := currentCPU.AsApproximateFloat64()
 		recommendedValue := recommendedCPU.AsApproximateFloat64()
@@ -503,7 +503,7 @@ func (r *PodRightSizingReconciler) meetsChangeThreshold(
 	// Check Memory request change
 	currentMem := current.Requests[corev1.ResourceMemory]
 	recommendedMem := recommended.Requests[corev1.ResourceMemory]
-	
+
 	if !currentMem.IsZero() && !recommendedMem.IsZero() {
 		currentValue := currentMem.AsApproximateFloat64()
 		recommendedValue := recommendedMem.AsApproximateFloat64()
