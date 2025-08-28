@@ -440,11 +440,13 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 	}
 
 	// Generate recommendations using the recommendation engine
+	logger.Info("Calling recommendation engine", "workload", workloadKey, "podCount", len(workloadMetrics.Pods))
 	recommendations, err := r.RecommendEngine.GenerateRecommendations(ctx, workloadMetrics, prs.Spec.Thresholds)
 	if err != nil {
 		logger.Error(err, "Failed to generate recommendations", "workload", workloadKey)
 		return nil, err
 	}
+	logger.Info("Raw recommendations from engine", "workload", workloadKey, "count", len(recommendations))
 
 	// Enhance recommendations with workload information and filter based on change threshold
 	var filteredRecommendations []rightsizingv1alpha1.PodRecommendation
@@ -463,9 +465,25 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 				currentResources := r.getCurrentResources(&pod)
 				recommendations[i].CurrentResources = currentResources
 
+				// Debug: log current vs recommended resources
+				currentCPU := currentResources.Requests[corev1.ResourceCPU]
+				recommendedCPU := recommendations[i].RecommendedResources.Requests[corev1.ResourceCPU]
+				currentMem := currentResources.Requests[corev1.ResourceMemory]
+				recommendedMem := recommendations[i].RecommendedResources.Requests[corev1.ResourceMemory]
+
+				logger.Info("Resource comparison",
+					"pod", recommendations[i].PodReference.Name,
+					"currentCPU", currentCPU.String(),
+					"recommendedCPU", recommendedCPU.String(),
+					"currentMemory", currentMem.String(),
+					"recommendedMemory", recommendedMem.String())
+
 				// Check if the recommendation meets the minimum change threshold
 				if r.meetsChangeThreshold(currentResources, recommendations[i].RecommendedResources, minChangeThreshold) {
+					logger.Info("Recommendation meets change threshold", "pod", recommendations[i].PodReference.Name, "threshold", minChangeThreshold)
 					filteredRecommendations = append(filteredRecommendations, recommendations[i])
+				} else {
+					logger.Info("Recommendation filtered out - below change threshold", "pod", recommendations[i].PodReference.Name, "threshold", minChangeThreshold)
 				}
 				break
 			}

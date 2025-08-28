@@ -72,12 +72,14 @@ func (r *RecommendationEngine) generatePodRecommendation(
 ) (*rightsizingv1alpha1.PodRecommendation, error) {
 
 	// Analyze CPU usage
+	fmt.Printf("DEBUG: Pod %s - CPU data points: %d\n", podMetrics.PodName, len(podMetrics.CPUUsageHistory))
 	cpuRecommendation, cpuConfidence, err := r.analyzeCPUUsage(podMetrics.CPUUsageHistory, thresholds)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze CPU usage: %w", err)
 	}
 
 	// Analyze Memory usage
+	fmt.Printf("DEBUG: Pod %s - Memory data points: %d\n", podMetrics.PodName, len(podMetrics.MemUsageHistory))
 	memoryRecommendation, memoryConfidence, err := r.analyzeMemoryUsage(podMetrics.MemUsageHistory, thresholds)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze memory usage: %w", err)
@@ -86,10 +88,19 @@ func (r *RecommendationEngine) generatePodRecommendation(
 	// Calculate overall confidence (minimum of CPU and memory confidence)
 	overallConfidence := int(math.Min(float64(cpuConfidence), float64(memoryConfidence)))
 
+	fmt.Printf("DEBUG: Pod %s confidence - CPU: %d, Memory: %d, Overall: %d\n",
+		podMetrics.PodName, cpuConfidence, memoryConfidence, overallConfidence)
+
 	// Skip recommendation if confidence is too low
 	if overallConfidence < r.DefaultConfidenceThreshold {
+		// Log why the recommendation was skipped
+		fmt.Printf("DEBUG: Skipping recommendation for pod %s - confidence %d < threshold %d\n",
+			podMetrics.PodName, overallConfidence, r.DefaultConfidenceThreshold)
 		return nil, nil
 	}
+
+	fmt.Printf("DEBUG: Generating recommendation for pod %s - confidence %d >= threshold %d\n",
+		podMetrics.PodName, overallConfidence, r.DefaultConfidenceThreshold)
 
 	// Build recommended resource requirements
 	recommendedResources := corev1.ResourceRequirements{
