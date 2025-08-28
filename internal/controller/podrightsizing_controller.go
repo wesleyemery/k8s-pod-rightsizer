@@ -455,7 +455,6 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 		minChangeThreshold = prs.Spec.Thresholds.MinChangeThreshold
 	}
 
-
 	// For mock data, when pod names don't match, use the first available pod as a representative sample
 	// This is a temporary workaround for testing purposes
 	for i := range recommendations {
