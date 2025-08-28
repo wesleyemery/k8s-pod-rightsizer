@@ -446,7 +446,13 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 		return nil, err
 	}
 
-	// Enhance recommendations with workload information
+	// Enhance recommendations with workload information and filter based on change threshold
+	var filteredRecommendations []rightsizingv1alpha1.PodRecommendation
+	minChangeThreshold := 10 // default 10%
+	if prs.Spec.Thresholds.MinChangeThreshold > 0 {
+		minChangeThreshold = prs.Spec.Thresholds.MinChangeThreshold
+	}
+
 	for i := range recommendations {
 		recommendations[i].PodReference.WorkloadType = workloadType
 		recommendations[i].PodReference.WorkloadName = workloadName
@@ -454,14 +460,70 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 		// Get current resources for comparison
 		for _, pod := range pods {
 			if pod.Name == recommendations[i].PodReference.Name {
-				recommendations[i].CurrentResources = r.getCurrentResources(&pod)
+				currentResources := r.getCurrentResources(&pod)
+				recommendations[i].CurrentResources = currentResources
+
+				// Check if the recommendation meets the minimum change threshold
+				if r.meetsChangeThreshold(currentResources, recommendations[i].RecommendedResources, minChangeThreshold) {
+					filteredRecommendations = append(filteredRecommendations, recommendations[i])
+				}
 				break
 			}
 		}
 	}
 
+	recommendations = filteredRecommendations
+
 	logger.Info("Generated recommendations", "workload", workloadKey, "count", len(recommendations))
 	return recommendations, nil
+}
+
+// meetsChangeThreshold checks if the recommended resources differ from current resources by at least the threshold percentage
+func (r *PodRightSizingReconciler) meetsChangeThreshold(
+	current, recommended corev1.ResourceRequirements,
+	thresholdPercent int,
+) bool {
+	threshold := float64(thresholdPercent) / 100.0
+
+	// Check CPU request change
+	currentCPU := current.Requests[corev1.ResourceCPU]
+	recommendedCPU := recommended.Requests[corev1.ResourceCPU]
+	
+	if !currentCPU.IsZero() && !recommendedCPU.IsZero() {
+		currentValue := currentCPU.AsApproximateFloat64()
+		recommendedValue := recommendedCPU.AsApproximateFloat64()
+		if currentValue > 0 {
+			change := abs((recommendedValue - currentValue) / currentValue)
+			if change >= threshold {
+				return true
+			}
+		}
+	}
+
+	// Check Memory request change
+	currentMem := current.Requests[corev1.ResourceMemory]
+	recommendedMem := recommended.Requests[corev1.ResourceMemory]
+	
+	if !currentMem.IsZero() && !recommendedMem.IsZero() {
+		currentValue := currentMem.AsApproximateFloat64()
+		recommendedValue := recommendedMem.AsApproximateFloat64()
+		if currentValue > 0 {
+			change := abs((recommendedValue - currentValue) / currentValue)
+			if change >= threshold {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// abs returns the absolute value of a float64
+func abs(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // getCurrentResources extracts current resource requirements from a pod
