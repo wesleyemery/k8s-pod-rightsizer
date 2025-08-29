@@ -1,533 +1,374 @@
+
+
 # Kubernetes Pod Right-sizer
 
-A custom Kubernetes controller built with controller-runtime that automatically analyzes and optimizes pod resource requests and limits based on historical usage patterns. This tool replicates core functionality of commercial solutions like ScaleOps, providing in-house resource optimization for your AKS clusters.
+A Kubernetes custom controller that automatically analyzes and optimizes pod resource requests and limits based on historical usage patterns. This tool provides intelligent resource recommendations to improve cluster efficiency and reduce costs.
 
-## 🚀 Features
+## Features
 
-- **Historical Analysis**: Analyzes pod resource usage over configurable time windows (7-30 days)
-- **Smart Recommendations**: Generates CPU/memory recommendations based on percentile analysis
-- **Multiple Update Strategies**: Supports immediate, gradual, and manual recommendation application
-- **Prometheus Integration**: Collects metrics from Prometheus for production-grade analysis
-- **Metrics Server Fallback**: Works with Kubernetes metrics-server for basic functionality
-- **Safety Controls**: Configurable safety margins, min/max constraints, and confidence scoring
-- **Workload Awareness**: Supports Deployments, StatefulSets, DaemonSets, and Jobs
-- **Dry-run Mode**: Generate recommendations without applying changes
+* **Historical Analysis**: Analyze pod resource usage over configurable time windows
+* **Smart Recommendations**: Generate CPU/memory recommendations based on percentile analysis
+* **Multiple Update Strategies**: Supports immediate, gradual, and manual recommendation application
+* **Prometheus Integration**: Collect metrics from Prometheus for production-grade analysis
+* **Metrics Server Fallback**: Works with Kubernetes metrics-server for basic functionality
+* **Safety Controls**: Configurable safety margins, min/max constraints, and confidence scoring
+* **Workload Awareness**: Supports Deployments, StatefulSets, DaemonSets, and Jobs
+* **Dry-run Mode**: Generate recommendations without applying changes
+* **Validation Webhooks**: Comprehensive validation for configuration correctness
 
-## 📋 Prerequisites
+## Quick Start
 
-- Go 1.21+
-- Docker
-- kubectl
-- Access to a Kubernetes cluster (AKS recommended)
-- Prometheus (recommended) or Kubernetes Metrics Server
-- kubebuilder (for development)
+### Prerequisites
 
-## 🛠️ Installation
+* Kubernetes cluster (v1.20+)
+* Go 1.21+ (for development)
+* kubectl configured
+* Prometheus (recommended) or Kubernetes Metrics Server
 
-### Step 1: Setup Development Environment
+### Installation
 
-1. **Install kubebuilder**:
-```bash
-curl -L -o kubebuilder https://go.kubebuilder.io/dl/latest/$(go env GOOS)/$(go env GOARCH)
-chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin/
-```
+1. **Install CRDs and Controller**:
 
-2. **Clone and setup the project**:
-```bash
-git clone <your-repo-url>
-cd k8s-pod-rightsizer
+   ```bash
+   # Clone the repository
+   git clone https://github.com/your-org/k8s-pod-rightsizer
+   cd k8s-pod-rightsizer
 
-# Add required dependencies
-go mod tidy
-```
+   # Install CRDs
+   make install
 
-### Step 2: Deploy to Your Cluster
+   # Deploy the controller
+   make deploy IMG=your-registry/pod-rightsizer:latest
+   ```
 
-1. **Install CRDs**:
-```bash
-make install
-```
+2. **Verify Installation**:
 
-2. **Build and deploy the controller**:
-```bash
-# For local testing
-make run
+   ```bash
+   kubectl get pods -n pod-rightsizer-system
+   kubectl get crd podrightsizings.rightsizing.k8s-rightsizer.io
+   ```
 
-# For cluster deployment
-make docker-build IMG=your-registry/pod-rightsizer:v0.1.0
-make docker-push IMG=your-registry/pod-rightsizer:v0.1.0
-make deploy IMG=your-registry/pod-rightsizer:v0.1.0
-```
+## Basic Usage Examples
 
-## 🧪 Testing Guide
+### Example 1: Simple Dry-Run Analysis
 
-### Test Environment Setup
-
-#### Option 1: Local Kind Cluster with Sample Workload
-
-1. **Create a Kind cluster**:
-```bash
-kind create cluster --name rightsizer-test
-```
-
-2. **Deploy sample application**:
-```bash
-# Create a test deployment
-kubectl create deployment test-app --image=nginx:latest --replicas=3
-kubectl set resources deployment test-app --requests=cpu=100m,memory=128Mi --limits=cpu=500m,memory=512Mi
-
-# Add labels for targeting
-kubectl label deployment test-app app=test-webapp
-```
-
-3. **Install Prometheus (simplified)**:
-```bash
-# Add Prometheus Helm repo
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
-
-# Install Prometheus with minimal config
-helm install prometheus prometheus-community/kube-prometheus-stack \
-  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
-  --set prometheus.prometheusSpec.retention=7d
-```
-
-4. **Wait for metrics collection** (5-10 minutes for initial data).
-
-#### Option 2: Existing AKS Cluster
-
-1. **Ensure Prometheus is available**:
-```bash
-# Check if Prometheus is running
-kubectl get svc -n monitoring prometheus-server
-
-# If using Azure Monitor, configure the metrics source accordingly
-```
-
-2. **Deploy test workload** (if needed):
-```bash
-kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: resource-test-app
-  labels:
-    app: test-webapp
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: test-webapp
-  template:
-    metadata:
-      labels:
-        app: test-webapp
-    spec:
-      containers:
-      - name: app
-        image: nginx:alpine
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 200m
-            memory: 256Mi
-        # Add some CPU/memory load
-        command: ["/bin/sh"]
-        args:
-        - -c
-        - |
-          # Start nginx in background
-          nginx -g 'daemon off;' &
-          # Generate some CPU load
-          while true; do
-            dd if=/dev/zero of=/dev/null bs=1024 count=1000 2>/dev/null
-            sleep 10
-          done
-EOF
-```
-
-### Step-by-Step Testing
-
-#### Test 1: Dry-Run Analysis
-
-1. **Create a dry-run PodRightSizing resource**:
-```bash
-kubectl apply -f - <<EOF
+```yaml
 apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
 kind: PodRightSizing
 metadata:
-  name: test-dryrun
+  name: webapp-analysis
   namespace: default
 spec:
   target:
     namespace: default
     labelSelector:
       matchLabels:
-        app: test-webapp
-  analysisWindow: "1h"  # Short window for testing
+        app: webapp
+  analysisWindow: "24h"
   dryRun: true
-  thresholds:
-    cpuUtilizationPercentile: 90
-    memoryUtilizationPercentile: 90
-    safetyMargin: 20
-    minCpu: 10m
-    minMemory: 32Mi
-  metricsSource:
-    type: prometheus
-    prometheusConfig:
-      url: "http://prometheus-server.monitoring.svc.cluster.local"
-EOF
-```
-
-2. **Monitor the analysis**:
-```bash
-# Watch the PodRightSizing resource
-kubectl get podrightsizing test-dryrun -w
-
-# Check detailed status
-kubectl describe podrightsizing test-dryrun
-
-# View controller logs
-kubectl logs -n pod-rightsizer-system deployment/pod-rightsizer-controller-manager -f
-```
-
-3. **Examine recommendations**:
-```bash
-kubectl get podrightsizing test-dryrun -o yaml
-```
-
-#### Test 2: Gradual Update Strategy
-
-1. **Create a gradual update configuration**:
-```bash
-kubectl apply -f - <<EOF
-apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
-kind: PodRightSizing
-metadata:
-  name: test-gradual
-  namespace: default
-spec:
-  target:
-    namespace: default
-    labelSelector:
-      matchLabels:
-        app: test-webapp
-  analysisWindow: "2h"
-  dryRun: false
-  updatePolicy:
-    strategy: gradual
-    maxUnavailable: "50%"
-    minStabilityPeriod: "2m"
   thresholds:
     cpuUtilizationPercentile: 95
     memoryUtilizationPercentile: 95
-    safetyMargin: 25
+    safetyMargin: 20
   metricsSource:
     type: prometheus
     prometheusConfig:
-      url: "http://prometheus-server.monitoring.svc.cluster.local"
-EOF
+      url: "http://prometheus-server.monitoring.svc.cluster.local:9090"
 ```
 
-2. **Monitor the update process**:
-```bash
-# Watch pods for updates
-kubectl get pods -l app=test-webapp -w
+### Example 2: Automated Gradual Updates
 
-# Monitor the right-sizing progress
-kubectl get podrightsizing test-gradual -o yaml | grep -A 20 status
-```
-
-#### Test 3: Manual Strategy with Multiple Workloads
-
-1. **Create multiple test workloads**:
-```bash
-# CPU-intensive workload
-kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: cpu-intensive
-  labels:
-    workload-type: compute
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: cpu-app
-  template:
-    metadata:
-      labels:
-        app: cpu-app
-        workload-type: compute
-    spec:
-      containers:
-      - name: cpu-worker
-        image: alpine:latest
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 256Mi
-        command: ["/bin/sh", "-c"]
-        args: ["while true; do dd if=/dev/zero of=/dev/null bs=1M count=100; sleep 5; done"]
-EOF
-
-# Memory-intensive workload  
-kubectl apply -f - <<EOF
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: memory-intensive
-  labels:
-    workload-type: memory
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: memory-app
-  template:
-    metadata:
-      labels:
-        app: memory-app
-        workload-type: memory
-    spec:
-      containers:
-      - name: memory-worker
-        image: alpine:latest
-        resources:
-          requests:
-            cpu: 50m
-            memory: 256Mi
-          limits:
-            cpu: 200m
-            memory: 1Gi
-        command: ["/bin/sh", "-c"]
-        args: ["dd if=/dev/zero of=/tmp/memory.tmp bs=1M count=500; sleep 3600"]
-EOF
-```
-
-2. **Create comprehensive right-sizing policy**:
-```bash
-kubectl apply -f - <<EOF
+```yaml
 apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
 kind: PodRightSizing
 metadata:
-  name: comprehensive-test
-  namespace: default
+  name: production-optimizer
+  namespace: prod
+spec:
+  target:
+    namespace: prod
+    includeWorkloadTypes:
+    - "Deployment"
+    - "StatefulSet"
+  analysisWindow: "168h"  # 7 days
+  schedule: "0 2 * * 1"   # Every Monday at 2 AM
+  dryRun: false
+  updatePolicy:
+    strategy: gradual
+    maxUnavailable: "25%"
+    minStabilityPeriod: "5m"
+  thresholds:
+    cpuUtilizationPercentile: 90
+    memoryUtilizationPercentile: 95
+    safetyMargin: 30
+    minChangeThreshold: 15
+    minCpu: "10m"
+    minMemory: "64Mi"
+    maxCpu: "4"
+    maxMemory: "8Gi"
+```
+
+### Example 3: Multi-Namespace with Custom Metrics
+
+```yaml
+apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
+kind: PodRightSizing
+metadata:
+  name: multi-namespace-analysis
+  namespace: rightsizing-system
 spec:
   target:
     namespaceSelector:
       matchLabels:
         rightsizing: "enabled"
-    includeWorkloadTypes:
-    - "Deployment"
-    - "StatefulSet"
     excludeNamespaces:
     - "kube-system"
     - "kube-public"
-  analysisWindow: "24h"
-  schedule: "0 */6 * * *"  # Every 6 hours
-  dryRun: false
+  analysisWindow: "72h"
+  schedule: "0 3 * * *"
   updatePolicy:
-    strategy: manual  # Generate recommendations only
-  thresholds:
-    cpuUtilizationPercentile: 90
-    memoryUtilizationPercentile: 95
-    safetyMargin: 15
-    minChangeThreshold: 20
-    minCpu: 10m
-    minMemory: 64Mi
-    maxCpu: 8
-    maxMemory: 16Gi
+    strategy: manual
   metricsSource:
     type: prometheus
     prometheusConfig:
-      url: "http://prometheus-server.monitoring.svc.cluster.local"
-EOF
-
-# Label the namespace for targeting
-kubectl label namespace default rightsizing=enabled
+      url: "https://prometheus.example.com:9090"
+      authConfig:
+        type: bearer
+        secretRef:
+          name: prometheus-token
+          namespace: rightsizing-system
 ```
 
-## 📊 Monitoring and Observability
+### Example 4: Development Environment
 
-### View Recommendations
+```yaml
+apiVersion: rightsizing.k8s-rightsizer.io/v1alpha1
+kind: PodRightSizing
+metadata:
+  name: dev-quick-optimize
+  namespace: development
+spec:
+  target:
+    namespace: development
+    labelSelector:
+      matchLabels:
+        environment: dev
+  analysisWindow: "2h"
+  updatePolicy:
+    strategy: immediate
+  thresholds:
+    cpuUtilizationPercentile: 80
+    memoryUtilizationPercentile: 85
+    safetyMargin: 10
+    minChangeThreshold: 5
+  metricsSource:
+    type: metrics-server
+```
 
-1. **List all right-sizing resources**:
+## Viewing Recommendations
+
 ```bash
+# List all PodRightSizing resources
 kubectl get podrightsizing -A
+
+# Get detailed status
+kubectl describe podrightsizing webapp-analysis
+
+# View recommendations in JSON format
+kubectl get podrightsizing webapp-analysis -o json | jq '.status.recommendations'
 ```
 
-2. **Get detailed recommendations**:
-```bash
-kubectl get podrightsizing <name> -o jsonpath='{.status.recommendations}' | jq '.'
+### Sample Recommendation Output
+
+```json
+{
+  "status": {
+    "phase": "Completed",
+    "targetedPods": 3,
+    "updatedPods": 0,
+    "lastAnalysisTime": "2025-01-15T10:30:00Z",
+    "recommendations": [
+      {
+        "podReference": {
+          "name": "webapp-deployment-abc123",
+          "namespace": "default",
+          "workloadType": "Deployment",
+          "workloadName": "webapp-deployment"
+        },
+        "currentResources": {
+          "requests": {
+            "cpu": "100m",
+            "memory": "256Mi"
+          },
+          "limits": {
+            "cpu": "500m",
+            "memory": "512Mi"
+          }
+        },
+        "recommendedResources": {
+          "requests": {
+            "cpu": "80m",
+            "memory": "180Mi"
+          },
+          "limits": {
+            "cpu": "200m",
+            "memory": "300Mi"
+          }
+        },
+        "confidence": 85,
+        "reason": "Based on 95th percentile of 144 data points. Applied 20% safety margin.",
+        "potentialSavings": {
+          "cpuSavings": "20m",
+          "memorySavings": "76Mi",
+          "costSavings": "$12.50/month"
+        }
+      }
+    ]
+  }
+}
 ```
 
-3. **Check resource utilization**:
-```bash
-# Current resource requests
-kubectl describe pods -l app=test-webapp | grep -A 5 "Requests"
+## Configuration Reference
 
-# Compare with recommendations
-kubectl get podrightsizing test-dryrun -o jsonpath='{.status.recommendations[0].recommendedResources}' | jq '.'
+### Target Specification
+
+| Field                  | Type          | Description                                  |
+| ---------------------- | ------------- | -------------------------------------------- |
+| `namespace`            | string        | Target specific namespace                    |
+| `labelSelector`        | LabelSelector | Target pods matching labels                  |
+| `namespaceSelector`    | LabelSelector | Target pods in labeled namespaces            |
+| `excludeNamespaces`    | \[]string     | Namespaces to exclude                        |
+| `includeWorkloadTypes` | \[]string     | Workload types to include (Deployment, etc.) |
+
+### Threshold Configuration
+
+| Field                         | Default | Description                                   |
+| ----------------------------- | ------- | --------------------------------------------- |
+| `cpuUtilizationPercentile`    | 95      | CPU percentile to target (0-100)              |
+| `memoryUtilizationPercentile` | 95      | Memory percentile to target (0-100)           |
+| `safetyMargin`                | 20      | Safety margin percentage                      |
+| `minChangeThreshold`          | 10      | Minimum change required to trigger update (%) |
+| `minCpu`                      | -       | Minimum CPU request                           |
+| `maxCpu`                      | -       | Maximum CPU request                           |
+| `minMemory`                   | -       | Minimum memory request                        |
+| `maxMemory`                   | -       | Maximum memory request                        |
+
+### Update Strategies
+
+| Strategy    | Description                      | Use Case                                   |
+| ----------- | -------------------------------- | ------------------------------------------ |
+| `manual`    | Generate recommendations only    | Production environments requiring approval |
+| `gradual`   | Rolling updates with constraints | Production with automatic updates          |
+| `immediate` | Apply all changes at once        | Development/testing                        |
+
+## Advanced Configuration
+
+### Custom Prometheus Queries
+
+```yaml
+env:
+- name: PROMETHEUS_CPU_QUERY
+  value: 'rate(container_cpu_usage_seconds_total[5m])'
+- name: PROMETHEUS_MEMORY_QUERY  
+  value: 'container_memory_working_set_bytes'
 ```
 
-### Controller Metrics
+### Scaling the Controller
 
-The controller exposes metrics that can be monitored:
-
-```bash
-# Port-forward to access metrics
-kubectl port-forward -n pod-rightsizer-system svc/pod-rightsizer-controller-manager-metrics-service 8443:8443
-
-# Query metrics (with proper authentication)
-curl -k https://localhost:8443/metrics
+```yaml
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+      - name: manager
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        env:
+        - name: MAX_CONCURRENT_RECONCILES
+          value: "10"
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
 1. **No metrics available**:
-```bash
-# Check Prometheus connectivity
-kubectl exec -n pod-rightsizer-system deployment/pod-rightsizer-controller-manager -- \
-  curl -v http://prometheus-server.monitoring.svc.cluster.local:80/api/v1/query?query=up
 
-# Verify metrics-server is running
-kubectl get deployment metrics-server -n kube-system
-```
+   ```bash
+   kubectl logs -n pod-rightsizer-system deployment/pod-rightsizer-controller-manager
+   kubectl top nodes
+   ```
 
-2. **Insufficient data points**:
-```bash
-# Check if pods have been running long enough
-kubectl get pods -l app=test-webapp -o wide
+2. **Insufficient permissions**:
 
-# Verify Prometheus is scraping metrics
-kubectl port-forward -n monitoring svc/prometheus-server 9090:80
-# Visit http://localhost:9090 and query: container_cpu_usage_seconds_total
-```
+   ```bash
+   kubectl auth can-i get pods --as=system:serviceaccount:pod-rightsizer-system:pod-rightsizer-controller-manager
+   ```
 
-3. **RBAC issues**:
-```bash
-# Check controller permissions
-kubectl auth can-i get pods --as=system:serviceaccount:pod-rightsizer-system:pod-rightsizer-controller-manager
-kubectl auth can-i update deployments --as=system:serviceaccount:pod-rightsizer-system:pod-rightsizer-controller-manager
-```
+3. **Webhook validation errors**:
 
-4. **Controller not reconciling**:
-```bash
-# Check controller logs
-kubectl logs -n pod-rightsizer-system deployment/pod-rightsizer-controller-manager -f
-
-# Verify CRDs are installed
-kubectl get crd podrightsizings.rightsizing.k8s-rightsizer.io
-
-# Check for webhook issues (if applicable)
-kubectl get validatingwebhookconfigurations
-kubectl get mutatingwebhookconfigurations
-```
+   ```bash
+   kubectl logs -n pod-rightsizer-system deployment/pod-rightsizer-controller-manager | grep webhook
+   ```
 
 ### Debug Mode
 
-Enable verbose logging:
-
 ```bash
-# Update controller args for debug mode
 kubectl patch deployment -n pod-rightsizer-system pod-rightsizer-controller-manager \
   --type='json' \
   -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--zap-log-level=debug"}]'
 ```
 
-## 🚀 Production Deployment
+## Monitoring
 
-### AKS-Specific Configuration
+The controller exposes Prometheus metrics:
 
-1. **Use Azure Monitor for metrics** (if not using Prometheus):
 ```yaml
-spec:
-  metricsSource:
-    type: metrics-server
-```
-
-2. **Configure for AKS node pools**:
-```yaml
-spec:
-  target:
-    namespaceSelector:
-      matchLabels:
-        environment: production
-    includeWorkloadTypes:
-    - "Deployment"
-    - "StatefulSet"
-  thresholds:
-    # Conservative settings for production
-    cpuUtilizationPercentile: 90
-    memoryUtilizationPercentile: 95
-    safetyMargin: 30
-    minChangeThreshold: 25
-```
-
-3. **Production-ready scheduling**:
-```yaml
-spec:
-  schedule: "0 2 * * 1"  # Weekly on Monday at 2 AM
-  updatePolicy:
-    strategy: gradual
-    maxUnavailable: "10%"
-    minStabilityPeriod: "15m"
-```
-
-### Security Considerations
-
-1. **Network policies** (if using Calico/Azure CNI):
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
 metadata:
-  name: pod-rightsizer-netpol
-  namespace: pod-rightsizer-system
+  name: pod-rightsizer-metrics
 spec:
-  podSelector:
+  selector:
     matchLabels:
       control-plane: controller-manager
-  egress:
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: monitoring
-    ports:
-    - protocol: TCP
-      port: 9090
+  endpoints:
+  - port: https
 ```
 
-2. **Pod Security Standards**:
-```bash
-kubectl label namespace pod-rightsizer-system \
-  pod-security.kubernetes.io/enforce=restricted \
-  pod-security.kubernetes.io/audit=restricted \
-  pod-security.kubernetes.io/warn=restricted
-```
+### Key Metrics
 
-## 🤝 Contributing
+* `pod_rightsizing_recommendations_total` – Total recommendations generated
+* `pod_rightsizing_updates_total` – Total resource updates applied
+* `pod_rightsizing_analysis_duration_seconds` – Time taken for analysis
+
+## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/awesome-feature`)
+3. Make changes and add tests
+4. Run tests (`make test`)
+5. Commit changes (`git commit -m 'Add awesome feature'`)
+6. Push to branch (`git push origin feature/awesome-feature`)
+7. Create a Pull Request
 
-## 📝 License
+## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- Built with [Kubebuilder](https://kubebuilder.io/)
-- Inspired by [ScaleOps](https://www.scaleops.com/) and similar commercial solutions
-- Uses [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime) for Kubernetes integration
+* Built with [Kubebuilder](https://kubebuilder.io/)
+* Uses [controller-runtime](https://github.com/kubernetes-sigs/controller-runtime)
+
+## Resources
+
+* [Kubernetes Resource Management](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+* [Prometheus Metrics](https://prometheus.io/docs/concepts/metric_types/)
+* [Kubebuilder Book](https://book.kubebuilder.io/)

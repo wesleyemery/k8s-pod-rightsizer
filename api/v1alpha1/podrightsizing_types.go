@@ -281,6 +281,7 @@ type ResourceSavings struct {
 //+kubebuilder:printcolumn:name="Updated",type="integer",JSONPath=".status.updatedPods"
 //+kubebuilder:printcolumn:name="Last Analysis",type="date",JSONPath=".status.lastAnalysisTime"
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+//+kubebuilder:webhook:path=/validate-rightsizing-k8s-rightsizer-io-v1alpha1-podrightsizing,mutating=false,failurePolicy=fail,sideEffects=None,groups=rightsizing.k8s-rightsizer.io,resources=podrightsizings,verbs=create;update,versions=v1alpha1,name=vpodrightsizing.rightsizing.k8s-rightsizer.io,admissionReviewVersions=v1
 
 // PodRightSizing is the Schema for the podrightsizings API.
 type PodRightSizing struct {
