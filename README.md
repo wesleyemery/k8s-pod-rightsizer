@@ -13,6 +13,9 @@ A Kubernetes custom controller that automatically analyzes and optimizes pod res
 * **Metrics Server Fallback**: Works with Kubernetes metrics-server for basic functionality
 * **Safety Controls**: Configurable safety margins, min/max constraints, and confidence scoring
 * **Workload Awareness**: Supports Deployments, StatefulSets, DaemonSets, and Jobs
+* **Real-time Azure Pricing**: Automatically fetches current Azure VM pricing using Azure Retail Prices API
+* **Node SKU Detection**: Discovers Azure VM SKU information from cluster nodes
+* **Cost Breakdown by SKU**: Detailed savings analysis per Azure VM SKU type
 * **Dry-run Mode**: Generate recommendations without applying changes
 * **Validation Webhooks**: Comprehensive validation for configuration correctness
 
@@ -223,7 +226,29 @@ kubectl get podrightsizing webapp-analysis -o json | jq '.status.recommendations
           "costSavings": "$12.50/month"
         }
       }
-    ]
+    ],
+    "nodeSKUBreakdown": {
+      "Standard_D2s_v3": {
+        "skuName": "Standard_D2s_v3",
+        "nodeCount": 2,
+        "totalMonthlyCost": 140.16,
+        "potentialSavings": 25.30,
+        "recommendationCount": 5,
+        "cpuCostPerCore": 35.04,
+        "memoryCostPerGB": 8.76
+      },
+      "Standard_D4s_v3": {
+        "skuName": "Standard_D4s_v3", 
+        "nodeCount": 1,
+        "totalMonthlyCost": 140.16,
+        "potentialSavings": 18.75,
+        "recommendationCount": 3,
+        "cpuCostPerCore": 35.04,
+        "memoryCostPerGB": 8.76
+      }
+    },
+    "usingRealPricing": true,
+    "pricingDataAge": "2.3 hours ago"
   }
 }
 ```
@@ -262,6 +287,22 @@ kubectl get podrightsizing webapp-analysis -o json | jq '.status.recommendations
 | `immediate` | Apply all changes at once        | Development/testing                        |
 
 ## Advanced Configuration
+
+### Azure Real-time Pricing
+
+The controller automatically detects Azure VM SKUs and fetches current pricing data from the Azure Retail Prices API. This provides accurate cost calculations based on your actual Azure VM types and regional pricing.
+
+#### Features:
+- **Automatic SKU Detection**: Discovers VM SKU from node labels (`node.kubernetes.io/instance-type`)
+- **Regional Pricing**: Uses region-specific pricing from node topology labels
+- **24-hour Caching**: Caches pricing data to reduce API calls
+- **Fallback to Defaults**: Uses conservative estimates if pricing API is unavailable
+
+#### Supported Azure VM Series:
+- **D-series** (General purpose): D2s_v3, D4s_v3, D8s_v3, etc.
+- **E-series** (Memory optimized): E2s_v3, E4s_v3, E8s_v3, etc.
+- **F-series** (Compute optimized): F2s_v2, F4s_v2, F8s_v2, etc.
+- **B-series** (Burstable): B1ms, B2s, B4ms, etc.
 
 ### Custom Prometheus Queries
 

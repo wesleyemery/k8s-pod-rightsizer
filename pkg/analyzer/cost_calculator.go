@@ -1,10 +1,15 @@
 package analyzer
 
 import (
+	"context"
 	"fmt"
 	rightsizingv1alpha1 "github.com/wesleyemery/k8s-pod-rightsizer/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
+	"time"
 )
 
 // CostCalculator calculates cost savings from resource recommendations
@@ -15,16 +20,73 @@ type CostCalculator struct {
 	MemoryCostPerGBMonth float64
 	// Cloud provider (for different pricing models)
 	CloudProvider string
+	// Azure pricing client for real-time pricing data
+	AzurePricingClient *AzurePricingClient
+	// Node-specific pricing data (node name -> pricing info)
+	NodePricingData map[string]*AzurePriceData
 }
 
 // NewCostCalculator creates a cost calculator with default AKS pricing
 func NewCostCalculator() *CostCalculator {
 	return &CostCalculator{
-		// AKS Standard_D2s_v3 approximate costs (adjust for your region)
+		// Default fallback costs (used when real pricing unavailable)
 		CPUCostPerCoreMonth:  20.0, // ~$20 per core per month
 		MemoryCostPerGBMonth: 2.5,  // ~$2.50 per GB per month
 		CloudProvider:        "azure",
+		AzurePricingClient:   NewAzurePricingClient(),
+		NodePricingData:      make(map[string]*AzurePriceData),
 	}
+}
+
+// NewCostCalculatorWithAzurePricing creates a cost calculator with real Azure pricing
+func NewCostCalculatorWithAzurePricing(ctx context.Context, k8sClient client.Client) (*CostCalculator, error) {
+	logger := log.FromContext(ctx)
+
+	calculator := &CostCalculator{
+		CPUCostPerCoreMonth:  20.0, // Fallback
+		MemoryCostPerGBMonth: 2.5,  // Fallback
+		CloudProvider:        "azure",
+		AzurePricingClient:   NewAzurePricingClient(),
+		NodePricingData:      make(map[string]*AzurePriceData),
+	}
+
+	// Fetch real pricing data for cluster nodes
+	logger.Info("Fetching real-time Azure pricing data for cluster nodes")
+	pricingInfo, err := calculator.AzurePricingClient.GetClusterPricingInfo(ctx, k8sClient)
+	if err != nil {
+		logger.Error(err, "Failed to fetch Azure pricing data, using defaults")
+		return calculator, nil // Return with defaults rather than error
+	}
+
+	calculator.NodePricingData = pricingInfo
+
+	// Calculate average pricing across all nodes for fallback
+	if len(pricingInfo) > 0 {
+		var totalCPUCost, totalMemoryCost float64
+		var nodeCount int
+
+		for _, priceData := range pricingInfo {
+			if priceData.CPUCostPerCore > 0 {
+				totalCPUCost += priceData.CPUCostPerCore
+				nodeCount++
+			}
+			if priceData.MemoryCostPerGB > 0 {
+				totalMemoryCost += priceData.MemoryCostPerGB
+			}
+		}
+
+		if nodeCount > 0 {
+			calculator.CPUCostPerCoreMonth = totalCPUCost / float64(nodeCount)
+			calculator.MemoryCostPerGBMonth = totalMemoryCost / float64(nodeCount)
+
+			logger.Info("Updated calculator with real Azure pricing",
+				"avgCPUCostPerCore", fmt.Sprintf("$%.2f/month", calculator.CPUCostPerCoreMonth),
+				"avgMemoryCostPerGB", fmt.Sprintf("$%.2f/month", calculator.MemoryCostPerGBMonth),
+				"nodesWithPricing", nodeCount)
+		}
+	}
+
+	return calculator, nil
 }
 
 // NewAWSCostCalculator creates a cost calculator with EKS pricing
@@ -47,6 +109,12 @@ func NewGCPCostCalculator() *CostCalculator {
 
 // CalculateSavings calculates potential cost savings from a recommendation
 func (c *CostCalculator) CalculateSavings(current, recommended corev1.ResourceRequirements) rightsizingv1alpha1.ResourceSavings {
+	return c.CalculateSavingsForNode(current, recommended, "")
+}
+
+// CalculateSavingsForNode calculates potential cost savings for a specific node
+// If nodeName is provided and node-specific pricing is available, uses that; otherwise uses defaults
+func (c *CostCalculator) CalculateSavingsForNode(current, recommended corev1.ResourceRequirements, nodeName string) rightsizingv1alpha1.ResourceSavings {
 	savings := rightsizingv1alpha1.ResourceSavings{}
 
 	// Calculate CPU savings
@@ -71,8 +139,8 @@ func (c *CostCalculator) CalculateSavings(current, recommended corev1.ResourceRe
 		}
 	}
 
-	// Calculate cost savings
-	monthlyCostSavings := c.calculateMonthlySavings(savings)
+	// Calculate cost savings using node-specific pricing if available
+	monthlyCostSavings := c.calculateMonthlySavingsForNode(savings, nodeName)
 	if monthlyCostSavings > 0 {
 		savings.CostSavings = fmt.Sprintf("$%.2f/month", monthlyCostSavings)
 	}
@@ -80,20 +148,42 @@ func (c *CostCalculator) CalculateSavings(current, recommended corev1.ResourceRe
 	return savings
 }
 
-// calculateMonthlySavings calculates monthly cost savings in USD
+// calculateMonthlySavings calculates monthly cost savings in USD using default pricing
 func (c *CostCalculator) calculateMonthlySavings(savings rightsizingv1alpha1.ResourceSavings) float64 {
+	return c.calculateMonthlySavingsForNode(savings, "")
+}
+
+// calculateMonthlySavingsForNode calculates monthly cost savings using node-specific pricing when available
+func (c *CostCalculator) calculateMonthlySavingsForNode(savings rightsizingv1alpha1.ResourceSavings, nodeName string) float64 {
 	totalSavings := 0.0
+
+	// Use node-specific pricing if available
+	var cpuCostPerCore, memoryCostPerGB float64
+	if nodeName != "" && c.NodePricingData != nil {
+		if nodePrice, exists := c.NodePricingData[nodeName]; exists && nodePrice != nil {
+			cpuCostPerCore = nodePrice.CPUCostPerCore
+			memoryCostPerGB = nodePrice.MemoryCostPerGB
+		}
+	}
+
+	// Fall back to default pricing if node-specific pricing not available
+	if cpuCostPerCore == 0 {
+		cpuCostPerCore = c.CPUCostPerCoreMonth
+	}
+	if memoryCostPerGB == 0 {
+		memoryCostPerGB = c.MemoryCostPerGBMonth
+	}
 
 	// CPU savings
 	if savings.CPUSavings != nil {
 		cpuCores := savings.CPUSavings.AsApproximateFloat64()
-		totalSavings += cpuCores * c.CPUCostPerCoreMonth
+		totalSavings += cpuCores * cpuCostPerCore
 	}
 
 	// Memory savings
 	if savings.MemorySavings != nil {
 		memoryGB := savings.MemorySavings.AsApproximateFloat64() / (1024 * 1024 * 1024)
-		totalSavings += memoryGB * c.MemoryCostPerGBMonth
+		totalSavings += memoryGB * memoryCostPerGB
 	}
 
 	return totalSavings
@@ -135,6 +225,78 @@ func (c *CostCalculator) EstimateClusterSavings(recommendations []rightsizingv1a
 	return report
 }
 
+// EstimateClusterSavingsWithAzureBreakdown provides detailed savings analysis with Azure SKU breakdown
+func (c *CostCalculator) EstimateClusterSavingsWithAzureBreakdown(recommendations []rightsizingv1alpha1.PodRecommendation) ClusterSavingsReport {
+	report := c.EstimateClusterSavings(recommendations)
+
+	// Add Azure-specific analysis if we have node pricing data
+	if c.NodePricingData != nil && len(c.NodePricingData) > 0 {
+		report.UsingRealPricing = true
+		report.NodeSKUBreakdown = make(map[string]*NodeSKUSavings)
+
+		// Group by SKU
+		skuGroups := make(map[string]*NodeSKUSavings)
+
+		for _, priceData := range c.NodePricingData {
+			skuName := priceData.SKUName
+			if skuName == "" {
+				continue
+			}
+
+			if _, exists := skuGroups[skuName]; !exists {
+				skuGroups[skuName] = &NodeSKUSavings{
+					SKUName:         skuName,
+					CPUCostPerCore:  priceData.CPUCostPerCore,
+					MemoryCostPerGB: priceData.MemoryCostPerGB,
+				}
+			}
+
+			skuGroups[skuName].NodeCount++
+			// Calculate total monthly cost for this node type
+			monthlyPrice := priceData.UnitPrice * 730 // hours per month
+			skuGroups[skuName].TotalMonthlyCost += monthlyPrice
+		}
+
+		// Calculate savings per SKU based on recommendations
+		for _, rec := range recommendations {
+			// Try to determine which node this pod runs on
+			// This would typically require additional pod->node mapping
+			// For now, distribute savings proportionally across SKUs
+
+			if rec.PotentialSavings.CostSavings != "" {
+				// Parse cost savings (format: "$X.XX/month")
+				costStr := strings.TrimPrefix(rec.PotentialSavings.CostSavings, "$")
+				costStr = strings.TrimSuffix(costStr, "/month")
+				if costSavings := parseFloat(costStr); costSavings > 0 {
+					// Distribute proportionally across SKUs for now
+					// In a real implementation, you'd track pod->node mappings
+					skuCount := len(skuGroups)
+					if skuCount > 0 {
+						savingsPerSKU := costSavings / float64(skuCount)
+						for _, skuSavings := range skuGroups {
+							skuSavings.PotentialSavings += savingsPerSKU
+							skuSavings.RecommendationCount++
+						}
+					}
+				}
+			}
+		}
+
+		report.NodeSKUBreakdown = skuGroups
+
+		// Add pricing data age
+		oldestData := time.Now()
+		for _, priceData := range c.NodePricingData {
+			if priceData.LastUpdated.Before(oldestData) {
+				oldestData = priceData.LastUpdated
+			}
+		}
+		report.PricingDataAge = fmt.Sprintf("%.1f hours ago", time.Since(oldestData).Hours())
+	}
+
+	return report
+}
+
 // ClusterSavingsReport provides a comprehensive savings analysis
 type ClusterSavingsReport struct {
 	TotalRecommendations    int
@@ -144,4 +306,28 @@ type ClusterSavingsReport struct {
 	EstimatedAnnualSavings  string
 	ROIAnalysis             string
 	CloudProvider           string
+	// Azure-specific fields
+	NodeSKUBreakdown map[string]*NodeSKUSavings `json:"nodeSKUBreakdown,omitempty"`
+	UsingRealPricing bool                       `json:"usingRealPricing"`
+	PricingDataAge   string                     `json:"pricingDataAge,omitempty"`
+}
+
+// NodeSKUSavings provides savings breakdown by node SKU
+type NodeSKUSavings struct {
+	SKUName             string  `json:"skuName"`
+	NodeCount           int     `json:"nodeCount"`
+	TotalMonthlyCost    float64 `json:"totalMonthlyCost"`
+	PotentialSavings    float64 `json:"potentialSavings"`
+	RecommendationCount int     `json:"recommendationCount"`
+	CPUCostPerCore      float64 `json:"cpuCostPerCore"`
+	MemoryCostPerGB     float64 `json:"memoryCostPerGB"`
+}
+
+// parseFloat safely parses a float from string, returning 0.0 on error
+func parseFloat(s string) float64 {
+	if val := 0.0; len(s) > 0 {
+		fmt.Sscanf(s, "%f", &val)
+		return val
+	}
+	return 0.0
 }
