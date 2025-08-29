@@ -10,6 +10,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	rightsizingv1alpha1 "github.com/wesleyemery/k8s-pod-rightsizer/api/v1alpha1"
 	"github.com/wesleyemery/k8s-pod-rightsizer/pkg/metrics"
@@ -38,10 +39,11 @@ func NewRecommendationEngine() *RecommendationEngine {
 
 // GenerateRecommendations generates resource recommendations for a workload
 func (r *RecommendationEngine) GenerateRecommendations(
-	_ context.Context,
+	ctx context.Context,
 	workloadMetrics *metrics.WorkloadMetrics,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) ([]rightsizingv1alpha1.PodRecommendation, error) {
+	logger := log.FromContext(ctx)
 
 	if len(workloadMetrics.Pods) == 0 {
 		return nil, fmt.Errorf("no pod metrics provided")
@@ -49,11 +51,17 @@ func (r *RecommendationEngine) GenerateRecommendations(
 
 	var recommendations []rightsizingv1alpha1.PodRecommendation
 
+	logger.Info("Generating recommendations for workload",
+		"workload", workloadMetrics.WorkloadName,
+		"podCount", len(workloadMetrics.Pods))
+
 	// Generate recommendations for each pod in the workload
 	for _, podMetrics := range workloadMetrics.Pods {
-		recommendation, err := r.generatePodRecommendation(podMetrics, thresholds)
+		recommendation, err := r.generatePodRecommendation(ctx, podMetrics, thresholds)
 		if err != nil {
-			// Log error but continue with other pods
+			logger.Error(err, "Failed to generate recommendation for pod",
+				"podName", podMetrics.PodName,
+				"namespace", podMetrics.Namespace)
 			continue
 		}
 
@@ -62,24 +70,32 @@ func (r *RecommendationEngine) GenerateRecommendations(
 		}
 	}
 
+	logger.Info("Generated recommendations",
+		"workload", workloadMetrics.WorkloadName,
+		"recommendationCount", len(recommendations))
+
 	return recommendations, nil
 }
 
 // generatePodRecommendation generates a recommendation for a single pod
 func (r *RecommendationEngine) generatePodRecommendation(
+	ctx context.Context,
 	podMetrics metrics.PodMetrics,
 	thresholds rightsizingv1alpha1.ResourceThresholds,
 ) (*rightsizingv1alpha1.PodRecommendation, error) {
+	logger := log.FromContext(ctx).WithValues("pod", podMetrics.PodName)
+
+	logger.V(1).Info("Analyzing pod metrics",
+		"cpuDataPoints", len(podMetrics.CPUUsageHistory),
+		"memoryDataPoints", len(podMetrics.MemUsageHistory))
 
 	// Analyze CPU usage
-	fmt.Printf("DEBUG: Pod %s - CPU data points: %d\n", podMetrics.PodName, len(podMetrics.CPUUsageHistory))
 	cpuRecommendation, cpuConfidence, err := r.analyzeCPUUsage(podMetrics.CPUUsageHistory, thresholds)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze CPU usage: %w", err)
 	}
 
 	// Analyze Memory usage
-	fmt.Printf("DEBUG: Pod %s - Memory data points: %d\n", podMetrics.PodName, len(podMetrics.MemUsageHistory))
 	memoryRecommendation, memoryConfidence, err := r.analyzeMemoryUsage(podMetrics.MemUsageHistory, thresholds)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze memory usage: %w", err)
@@ -88,19 +104,22 @@ func (r *RecommendationEngine) generatePodRecommendation(
 	// Calculate overall confidence (minimum of CPU and memory confidence)
 	overallConfidence := int(math.Min(float64(cpuConfidence), float64(memoryConfidence)))
 
-	fmt.Printf("DEBUG: Pod %s confidence - CPU: %d, Memory: %d, Overall: %d\n",
-		podMetrics.PodName, cpuConfidence, memoryConfidence, overallConfidence)
+	logger.V(1).Info("Calculated confidence scores",
+		"cpuConfidence", cpuConfidence,
+		"memoryConfidence", memoryConfidence,
+		"overallConfidence", overallConfidence)
 
 	// Skip recommendation if confidence is too low
 	if overallConfidence < r.DefaultConfidenceThreshold {
-		// Log why the recommendation was skipped
-		fmt.Printf("DEBUG: Skipping recommendation for pod %s - confidence %d < threshold %d\n",
-			podMetrics.PodName, overallConfidence, r.DefaultConfidenceThreshold)
+		logger.Info("Skipping recommendation due to low confidence",
+			"confidence", overallConfidence,
+			"threshold", r.DefaultConfidenceThreshold)
 		return nil, nil
 	}
 
-	fmt.Printf("DEBUG: Generating recommendation for pod %s - confidence %d >= threshold %d\n",
-		podMetrics.PodName, overallConfidence, r.DefaultConfidenceThreshold)
+	logger.Info("Generating recommendation with sufficient confidence",
+		"confidence", overallConfidence,
+		"threshold", r.DefaultConfidenceThreshold)
 
 	// Build recommended resource requirements
 	recommendedResources := corev1.ResourceRequirements{

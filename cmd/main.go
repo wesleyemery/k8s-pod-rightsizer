@@ -231,6 +231,10 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "PodRightSizing")
 		os.Exit(1)
 	}
+	if err = (&rightsizingv1alpha1.PodRightSizing{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "PodRightSizing")
+		os.Exit(1)
+	}
 	// +kubebuilder:scaffold:builder
 
 	if metricsCertWatcher != nil {
