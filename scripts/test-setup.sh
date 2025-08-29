@@ -92,11 +92,11 @@ spec:
         image: nginx:alpine
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 200m  # Higher requests to create optimization opportunity
+            memory: 256Mi
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: 1000m
+            memory: 1Gi
         ports:
         - containerPort: 80
 ---
@@ -134,21 +134,19 @@ spec:
     labelSelector:
       matchLabels:
         app: test-webapp
-  analysisWindow: "1h"  # Short for testing
+  analysisWindow: "30m"  # Shorter for testing but still sufficient
   dryRun: true  # Safe mode
-  schedule: "*/2 * * * *"  # Every 2 minutes for testing
   thresholds:
-    cpuUtilizationPercentile: 90
-    memoryUtilizationPercentile: 90
-    safetyMargin: 25
-    minCpu: 50m
-    minMemory: 64Mi
+    cpuUtilizationPercentile: 80  # Lower percentile for easier triggering
+    memoryUtilizationPercentile: 80
+    safetyMargin: 15  # Lower margin
+    minChangeThreshold: 5  # Lower threshold to catch smaller changes
+    minCpu: 10m  # Very low minimums to avoid blocking
+    minMemory: 32Mi
     maxCpu: 2
     maxMemory: 2Gi
   metricsSource:
-    type: prometheus
-    prometheusConfig:
-      url: "http://prometheus-server.monitoring.svc.cluster.local"
+    type: metrics-server  # Use metrics-server instead of Prometheus
 EOF
     
     log_info "Test configuration created: test-rightsizing.yaml"
@@ -158,11 +156,15 @@ EOF
 test_with_mock() {
     log_step "Testing with mock metrics"
     
-    log_info "Starting controller with mock metrics..."
+    log_info "Starting controller with enhanced mock metrics..."
     log_info "This will run in the background. Check the logs in another terminal."
     
+    # Set environment variables for better mock behavior
+    export CONFIDENCE_THRESHOLD=50  # Lower threshold for testing
+    export MIN_DATA_POINTS=5        # Fewer points needed
+    
     # Start controller with mock metrics in background
-    make run ARGS="--use-mock-metrics=true" > controller.log 2>&1 &
+    make run ARGS="--use-mock-metrics=true --zap-devel=true" > controller.log 2>&1 &
     CONTROLLER_PID=$!
     
     # Give controller time to start

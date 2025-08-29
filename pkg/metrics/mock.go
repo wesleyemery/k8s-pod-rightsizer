@@ -3,14 +3,17 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
+	"os"
+	"strconv"
 	"time"
 )
 
 const (
-	defaultBaseCPU                 = 0.05     // 50m cores
-	defaultBaseMemory              = 67108864 // 64Mi bytes
-	defaultVariance                = 0.3      // 30% variance
+	defaultBaseCPU                 = 0.05       // 50m cores
+	defaultBaseMemory              = 67108864.0 // 64Mi bytes
+	defaultVariance                = 0.3        // 30% variance
 	varianceOffset                 = 0.5
 	varianceMultiplier             = 2
 	minDataPointsForClassification = 20
@@ -27,9 +30,29 @@ type MockMetricsClient struct {
 
 // NewMockMetricsClient creates a mock metrics client for testing
 func NewMockMetricsClient() *MockMetricsClient {
+	// Read custom values from environment variables if set
+	baseCPU := defaultBaseCPU
+	baseMemory := defaultBaseMemory
+
+	// Read MOCK_CPU_USAGE_MILLIS environment variable
+	if cpuMilliStr := os.Getenv("MOCK_CPU_USAGE_MILLIS"); cpuMilliStr != "" {
+		if cpuMilli, err := strconv.ParseFloat(cpuMilliStr, 64); err == nil {
+			baseCPU = cpuMilli / 1000.0 // Convert millis to cores
+			log.Printf("Mock metrics using custom CPU: %.3f cores (from %sm millis)", baseCPU, cpuMilliStr)
+		}
+	}
+
+	// Read MOCK_MEMORY_USAGE_BYTES environment variable
+	if memBytesStr := os.Getenv("MOCK_MEMORY_USAGE_BYTES"); memBytesStr != "" {
+		if memBytes, err := strconv.ParseFloat(memBytesStr, 64); err == nil {
+			baseMemory = memBytes
+			log.Printf("Mock metrics using custom memory: %.0f bytes (%.1f MB)", baseMemory, baseMemory/(1024*1024))
+		}
+	}
+
 	return &MockMetricsClient{
-		BaseCPU:    defaultBaseCPU,
-		BaseMemory: defaultBaseMemory,
+		BaseCPU:    baseCPU,
+		BaseMemory: baseMemory,
 		Variance:   defaultVariance,
 		PodCount:   3, // Default pod count
 	}

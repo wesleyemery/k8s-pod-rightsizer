@@ -120,6 +120,10 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Group pods by workload
 	workloadGroups := r.groupPodsByWorkload(ctx, targetPods)
+	logger.Info("Grouped pods into workloads", "workloadCount", len(workloadGroups))
+	for key, pods := range workloadGroups {
+		logger.Info("Workload group details", "workload", key, "podCount", len(pods))
+	}
 
 	// Update phase to recommending
 	if err := r.updatePhase(ctx, &podRightSizing, rightsizingv1alpha1.PhaseRecommending, "Generating recommendations"); err != nil {
@@ -180,9 +184,22 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 // shouldRunAnalysis determines if analysis should run based on schedule
 func (r *PodRightSizingReconciler) shouldRunAnalysis(prs *rightsizingv1alpha1.PodRightSizing) bool {
+	logger := ctrl.Log.WithName("shouldRunAnalysis")
+
 	// Always run if no previous analysis
 	if prs.Status.LastAnalysisTime == nil {
+		logger.Info("No previous analysis time, should run", "podRightSizing", prs.Name)
 		return true
+	}
+
+	logger.Info("Checking if analysis should run", "podRightSizing", prs.Name, "lastAnalysisTime", prs.Status.LastAnalysisTime.Time, "schedule", prs.Spec.Schedule)
+
+	// If no schedule is specified, run every 5 minutes for testing
+	if prs.Spec.Schedule == "" {
+		timeSince := time.Since(prs.Status.LastAnalysisTime.Time)
+		shouldRun := timeSince >= 5*time.Minute
+		logger.Info("No schedule specified, checking 5-minute interval", "timeSince", timeSince, "shouldRun", shouldRun)
+		return shouldRun
 	}
 
 	// Parse the cron schedule
@@ -190,6 +207,11 @@ func (r *PodRightSizingReconciler) shouldRunAnalysis(prs *rightsizingv1alpha1.Po
 	if err != nil {
 		// If cron parsing fails, fall back to running every hour
 		return time.Since(prs.Status.LastAnalysisTime.Time) >= time.Hour
+	}
+
+	// For very frequent schedules (every minute), be more permissive
+	if prs.Spec.Schedule == "* * * * *" || prs.Spec.Schedule == "*/1 * * * *" {
+		return time.Since(prs.Status.LastAnalysisTime.Time) >= 1*time.Minute
 	}
 
 	// Calculate the next scheduled time after the last analysis
@@ -201,6 +223,16 @@ func (r *PodRightSizingReconciler) shouldRunAnalysis(prs *rightsizingv1alpha1.Po
 
 // requeueAfter calculates when to requeue based on cron schedule
 func (r *PodRightSizingReconciler) requeueAfter(prs *rightsizingv1alpha1.PodRightSizing) ctrl.Result {
+	// If no schedule is specified, requeue every 5 minutes for testing
+	if prs.Spec.Schedule == "" {
+		return ctrl.Result{RequeueAfter: 5 * time.Minute}
+	}
+
+	// For very frequent schedules (every minute), requeue after 1 minute
+	if prs.Spec.Schedule == "* * * * *" || prs.Spec.Schedule == "*/1 * * * *" {
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}
+	}
+
 	// Parse the cron schedule
 	schedule, err := cron.ParseStandard(prs.Spec.Schedule)
 	if err != nil {
@@ -213,14 +245,10 @@ func (r *PodRightSizingReconciler) requeueAfter(prs *rightsizingv1alpha1.PodRigh
 	requeueAfter := time.Until(nextRun)
 
 	// Ensure we don't requeue too far in the future (max 24 hours)
-	if requeueAfter > 24*time.Hour {
-		requeueAfter = 24 * time.Hour
-	}
+	requeueAfter = min(requeueAfter, 24*time.Hour)
 
-	// Ensure we don't requeue too soon (min 1 minute)
-	if requeueAfter < time.Minute {
-		requeueAfter = time.Minute
-	}
+	// Ensure we don't requeue too soon (min 30 seconds for testing)
+	requeueAfter = max(requeueAfter, 30*time.Second)
 
 	return ctrl.Result{RequeueAfter: requeueAfter}
 }
@@ -427,7 +455,7 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 	}
 
 	// Collect metrics for the workload
-	logger.Info("Collecting workload metrics", "workload", workloadKey, "window", window)
+	logger.Info("Collecting workload metrics", "workload", workloadKey, "namespace", namespace, "workloadName", workloadName, "workloadType", workloadType, "window", window)
 	workloadMetrics, err := r.MetricsClient.GetWorkloadMetrics(ctx, namespace, workloadName, workloadType, window)
 	if err != nil {
 		logger.Error(err, "Failed to get workload metrics", "workload", workloadKey)
@@ -438,15 +466,29 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 		logger.Info("No metrics found for workload", "workload", workloadKey)
 		return nil, fmt.Errorf("no metrics found for workload %s", workloadKey)
 	}
+	logger.Info("Retrieved workload metrics successfully", "workload", workloadKey, "podMetricsCount", len(workloadMetrics.Pods))
+	for i, pod := range workloadMetrics.Pods {
+		logger.Info("Pod metrics sample", "workload", workloadKey, "podIndex", i, "podName", pod.PodName, "cpuDataPoints", len(pod.CPUUsageHistory), "memDataPoints", len(pod.MemUsageHistory))
+		if len(pod.CPUUsageHistory) > 0 {
+			logger.Info("Sample CPU usage", "workload", workloadKey, "podName", pod.PodName, "value", pod.CPUUsageHistory[0].Value, "unit", pod.CPUUsageHistory[0].Unit)
+		}
+		if len(pod.MemUsageHistory) > 0 {
+			logger.Info("Sample memory usage", "workload", workloadKey, "podName", pod.PodName, "value", pod.MemUsageHistory[0].Value, "unit", pod.MemUsageHistory[0].Unit)
+		}
+	}
 
 	// Generate recommendations using the recommendation engine
 	logger.Info("Calling recommendation engine", "workload", workloadKey, "podCount", len(workloadMetrics.Pods))
+	logger.Info("Thresholds being used", "cpuPercentile", prs.Spec.Thresholds.CPUUtilizationPercentile, "memoryPercentile", prs.Spec.Thresholds.MemoryUtilizationPercentile, "minChangeThreshold", prs.Spec.Thresholds.MinChangeThreshold)
 	recommendations, err := r.RecommendEngine.GenerateRecommendations(ctx, workloadMetrics, prs.Spec.Thresholds)
 	if err != nil {
 		logger.Error(err, "Failed to generate recommendations", "workload", workloadKey)
 		return nil, err
 	}
 	logger.Info("Raw recommendations from engine", "workload", workloadKey, "count", len(recommendations))
+	for i, rec := range recommendations {
+		logger.Info("Raw recommendation details", "index", i, "podName", rec.PodReference.Name, "recommendedCPU", rec.RecommendedResources.Requests["cpu"], "recommendedMemory", rec.RecommendedResources.Requests["memory"])
+	}
 
 	// Enhance recommendations with workload information and filter based on change threshold
 	var filteredRecommendations []rightsizingv1alpha1.PodRecommendation
@@ -476,14 +518,20 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 			logger.Info("Using representative pod for mock recommendation",
 				"recommendationPod", recommendations[i].PodReference.Name,
 				"actualPod", matchedPod.Name)
+			recommendations[i].PodReference.Name = matchedPod.Name // Update the recommendation to use the actual pod name
 		}
 
 		if matchedPod != nil {
 			currentResources := r.getCurrentResources(matchedPod)
 			recommendations[i].CurrentResources = currentResources
+			logger.Info("Current vs recommended resources", "pod", recommendations[i].PodReference.Name,
+				"currentCPU", currentResources.Requests["cpu"], "recommendedCPU", recommendations[i].RecommendedResources.Requests["cpu"],
+				"currentMemory", currentResources.Requests["memory"], "recommendedMemory", recommendations[i].RecommendedResources.Requests["memory"])
 
 			// Check if the recommendation meets the minimum change threshold
-			if r.meetsChangeThreshold(currentResources, recommendations[i].RecommendedResources, minChangeThreshold) {
+			meetsThreshold := r.meetsChangeThreshold(currentResources, recommendations[i].RecommendedResources, minChangeThreshold)
+			logger.Info("Change threshold analysis", "pod", recommendations[i].PodReference.Name, "threshold", minChangeThreshold, "meetsThreshold", meetsThreshold)
+			if meetsThreshold {
 				logger.Info("Recommendation meets change threshold", "pod", recommendations[i].PodReference.Name, "threshold", minChangeThreshold)
 				filteredRecommendations = append(filteredRecommendations, recommendations[i])
 			} else {
@@ -506,22 +554,30 @@ func (r *PodRightSizingReconciler) meetsChangeThreshold(
 	thresholdPercent int,
 ) bool {
 	threshold := float64(thresholdPercent) / 100.0
+	logger := ctrl.Log.WithName("meetsChangeThreshold")
 
 	// Check CPU request change
 	currentCPU := current.Requests[corev1.ResourceCPU]
 	recommendedCPU := recommended.Requests[corev1.ResourceCPU]
 
+	logger.Info("Evaluating CPU change", "currentCPU", currentCPU.String(), "recommendedCPU", recommendedCPU.String(), "threshold", threshold)
+
 	// Handle missing/zero resources more gracefully
 	if currentCPU.IsZero() && recommendedCPU.IsZero() {
+		logger.Info("Both CPU values are zero, no change needed")
 	} else if currentCPU.IsZero() && !recommendedCPU.IsZero() {
+		logger.Info("CPU change: zero to non-zero, meets threshold")
 		return true
 	} else if !currentCPU.IsZero() && recommendedCPU.IsZero() {
+		logger.Info("CPU change: non-zero to zero, meets threshold")
 		return true
 	} else if !currentCPU.IsZero() && !recommendedCPU.IsZero() {
 		currentValue := currentCPU.AsApproximateFloat64()
 		recommendedValue := recommendedCPU.AsApproximateFloat64()
+		logger.Info("CPU values", "currentValue", currentValue, "recommendedValue", recommendedValue)
 		if currentValue > 0 {
 			change := abs((recommendedValue - currentValue) / currentValue)
+			logger.Info("CPU change calculation", "change", change, "threshold", threshold, "meetsThreshold", change >= threshold)
 			if change >= threshold {
 				return true
 			}
@@ -532,23 +588,31 @@ func (r *PodRightSizingReconciler) meetsChangeThreshold(
 	currentMem := current.Requests[corev1.ResourceMemory]
 	recommendedMem := recommended.Requests[corev1.ResourceMemory]
 
+	logger.Info("Evaluating memory change", "currentMemory", currentMem.String(), "recommendedMemory", recommendedMem.String(), "threshold", threshold)
+
 	// Handle missing/zero resources more gracefully
 	if currentMem.IsZero() && recommendedMem.IsZero() {
+		logger.Info("Both memory values are zero, no change needed")
 	} else if currentMem.IsZero() && !recommendedMem.IsZero() {
+		logger.Info("Memory change: zero to non-zero, meets threshold")
 		return true
 	} else if !currentMem.IsZero() && recommendedMem.IsZero() {
+		logger.Info("Memory change: non-zero to zero, meets threshold")
 		return true
 	} else if !currentMem.IsZero() && !recommendedMem.IsZero() {
 		currentValue := currentMem.AsApproximateFloat64()
 		recommendedValue := recommendedMem.AsApproximateFloat64()
+		logger.Info("Memory values", "currentValue", currentValue, "recommendedValue", recommendedValue)
 		if currentValue > 0 {
 			change := abs((recommendedValue - currentValue) / currentValue)
+			logger.Info("Memory change calculation", "change", change, "threshold", threshold, "meetsThreshold", change >= threshold)
 			if change >= threshold {
 				return true
 			}
 		}
 	}
 
+	logger.Info("Recommendation does not meet change threshold")
 	return false
 }
 
