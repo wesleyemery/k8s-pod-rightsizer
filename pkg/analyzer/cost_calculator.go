@@ -148,18 +148,13 @@ func (c *CostCalculator) CalculateSavingsForNode(current, recommended corev1.Res
 	return savings
 }
 
-// calculateMonthlySavings calculates monthly cost savings in USD using default pricing
-func (c *CostCalculator) calculateMonthlySavings(savings rightsizingv1alpha1.ResourceSavings) float64 {
-	return c.calculateMonthlySavingsForNode(savings, "")
-}
-
 // calculateMonthlySavingsForNode calculates monthly cost savings using node-specific pricing when available
 func (c *CostCalculator) calculateMonthlySavingsForNode(savings rightsizingv1alpha1.ResourceSavings, nodeName string) float64 {
 	totalSavings := 0.0
 
 	// Use node-specific pricing if available
 	var cpuCostPerCore, memoryCostPerGB float64
-	if nodeName != "" && c.NodePricingData != nil {
+	if nodeName != "" && len(c.NodePricingData) > 0 {
 		if nodePrice, exists := c.NodePricingData[nodeName]; exists && nodePrice != nil {
 			cpuCostPerCore = nodePrice.CPUCostPerCore
 			memoryCostPerGB = nodePrice.MemoryCostPerGB
@@ -230,7 +225,7 @@ func (c *CostCalculator) EstimateClusterSavingsWithAzureBreakdown(recommendation
 	report := c.EstimateClusterSavings(recommendations)
 
 	// Add Azure-specific analysis if we have node pricing data
-	if c.NodePricingData != nil && len(c.NodePricingData) > 0 {
+	if len(c.NodePricingData) > 0 {
 		report.UsingRealPricing = true
 		report.NodeSKUBreakdown = make(map[string]*NodeSKUSavings)
 
@@ -325,8 +320,11 @@ type NodeSKUSavings struct {
 
 // parseFloat safely parses a float from string, returning 0.0 on error
 func parseFloat(s string) float64 {
-	if val := 0.0; len(s) > 0 {
-		fmt.Sscanf(s, "%f", &val)
+	var val float64
+	if len(s) > 0 {
+		if _, err := fmt.Sscanf(s, "%f", &val); err != nil {
+			return 0.0
+		}
 		return val
 	}
 	return 0.0
