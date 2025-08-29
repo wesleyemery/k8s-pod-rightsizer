@@ -185,7 +185,7 @@ func (r *PodRightSizingReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 // shouldRunAnalysis determines if analysis should run based on schedule
 func (r *PodRightSizingReconciler) shouldRunAnalysis(prs *rightsizingv1alpha1.PodRightSizing) bool {
 	logger := ctrl.Log.WithName("shouldRunAnalysis")
-	
+
 	// Always run if no previous analysis
 	if prs.Status.LastAnalysisTime == nil {
 		logger.Info("No previous analysis time, should run", "podRightSizing", prs.Name)
@@ -524,7 +524,7 @@ func (r *PodRightSizingReconciler) generateWorkloadRecommendations(
 		if matchedPod != nil {
 			currentResources := r.getCurrentResources(matchedPod)
 			recommendations[i].CurrentResources = currentResources
-			logger.Info("Current vs recommended resources", "pod", recommendations[i].PodReference.Name, 
+			logger.Info("Current vs recommended resources", "pod", recommendations[i].PodReference.Name,
 				"currentCPU", currentResources.Requests["cpu"], "recommendedCPU", recommendations[i].RecommendedResources.Requests["cpu"],
 				"currentMemory", currentResources.Requests["memory"], "recommendedMemory", recommendations[i].RecommendedResources.Requests["memory"])
 
